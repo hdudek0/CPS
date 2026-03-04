@@ -7,11 +7,6 @@ import matplotlib.pyplot as plt
 # TODO: zoptymalizować wzory niektórych sygnałów
 # TODO: pozabezpieczać przed dzieleniem przez 0
 
-# pythanie: dlaczego częstotliwosc probkowania nie jest parametrem sygnału w sygnałach ciągłych?
-# nie jest używana do zdefiniowania sygnału, to jest oddzielny mechanizm który musimy zastosować
-# żeby reprezentować go w postaci zbioru punktów zamiast funkcji, nie zmienia to sygnału,
-# tylko rozdzielczość tej reprezentacji. tak mi się wydaje, można pytać tak czy siak
-
 class Signal(ABC):
     @abstractmethod
     def value(self, x):
@@ -147,15 +142,15 @@ class ContinuousSignal(Signal):
 class DiscreteSignal(Signal):
     is_discrete = True
 
-    def __init__(self, A, n1, d, f=10):
+    def __init__(self, A, n1, l, f=10):
         self.A = A
         self.n1 = n1
-        self.d = d
+        self.l = l
         self.f = f
 
     def samples(self):
         X, Y = [], []
-        for i in range(self.d):
+        for i in range(self.l):
             n = self.n1 + i
             t = n / self.f
             X.append(t)
@@ -298,13 +293,10 @@ class S9(ContinuousSignal):
 
 # SYGNAŁY DYSKRETNE
 
-# wydaje mi się że parametr l to miało być d
-# d - długość l - length wygląda jak pomyłka
-
 # Impuls jednostkowy
 class S10(DiscreteSignal):
-    def __init__(self, A, ns, n1, d, f=10):
-        super().__init__(A, n1, d, f)
+    def __init__(self, A, ns, n1, l, f=10):
+        super().__init__(A, n1, l, f)
         self.ns = ns
 
     def value(self, n):
@@ -319,8 +311,8 @@ class S10(DiscreteSignal):
 
 # Szum impulsowy
 class S11(DiscreteSignal):
-    def __init__(self, A, p, n1, d, f=10):
-        super().__init__(A, n1, d, f)
+    def __init__(self, A, p, n1, l, f=10):
+        super().__init__(A, n1, l, f)
         self.p = p
 
     def value(self, n):
@@ -350,11 +342,11 @@ if __name__ == "__main__":
     suma.plot()
 
     suma.save_bin("suma.bin")
-    wczytany = Signal.load_bin("suma.bin")
+    wczytany = Signal.load("suma.bin")
     wczytany.plot()
 
     # dyskretny
-    szumik2 = S11(5, 0.2, 0, 100, 10)
+    szumik2 = S11(5, 0.2, -5, 40)
     szumik2.save_bin("s11.bin")
-    w = Signal.load_bin("s11.bin")
+    w = Signal.load("s11.bin")
     w.plot()

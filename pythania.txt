@@ -1,0 +1,19 @@
+pythanie: dlaczego częstotliwosc probkowania nie jest parametrem sygnału w sygnałach ciągłych?
+# nie jest używana do zdefiniowania sygnału, to jest oddzielny mechanizm który musimy zastosować
+# żeby reprezentować go w postaci zbioru punktów zamiast funkcji, nie zmienia to sygnału,
+# tylko rozdzielczość tej reprezentacji. tak mi się wydaje, można pytać tak czy siak
+czy ten zestaw parametrów ktory jest podawany przy kazdym sygnale moze byc rozszerzony o czestotliwosc probkowania?
+
+wyjasnic tę kwestię n/l i t/d, dlaczego w sygnałach dyskretnych S11 jest na t a nie na n
+
+zapytac o to czy str moze sluzyc za tytul wykresu czy reprezentacja powinna być unikalna dla każdej instancji
+
+zapytac o sposob zapisu do pliku (czy wystarczy tak jak jest czt naglowek osobno) i tez tekstowy jak mialo byc
+
+w jaki sposob zaimplementować te parametry wyliczane dla sygnału ciągłego
+czy tą całkę można wyliczyc jako sumę i zrobić jeden ten sam wzór dla ciągłego i dyskretnego?
+
+"Dla sygnału okresowego jako wartości graniczne należy wybrać takie, aby ich
+różnica była całkowitą wielokrotnością okresu" - jak to nalezy wybrac, czy mają być ograniczenia przy wprowadzaniu przez uzytkownika, czy to przycinać jedynie do liczenia, czy to przycinać też przy rysowaniu???
+
+skonsultować rozkład normalny
