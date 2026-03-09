@@ -60,7 +60,6 @@ class Signal(ABC):
         return SampledSignal(data["X"], data["Y"], is_discrete=data.get("is_discrete", False),
                              name=f"Loaded({data.get('name', '?')})")
 
-    # TODO, Stasiak mówił jak to ma wyglądać ale nie pamiętam :/
     def save_txt(self, path):
         pass
 
@@ -165,7 +164,7 @@ class S1(ContinuousSignal):
         return random.uniform(-self.A, self.A)
 
     def __str__(self):
-        return "S1 Szum jednostajny"
+        return "Szum o rozkładzie jednostajnym"
 
 
 # Szum gaussowski
@@ -175,7 +174,7 @@ class S2(ContinuousSignal):
         return min(self.A, max(-self.A, random.gauss()))  #domyślnie mean=0, std=1
 
     def __str__(self):
-        return "S2 Szum gaussowski"
+        return "Szum gaussowski"
 
 
 # Sygnał sinusoidalny
@@ -188,7 +187,7 @@ class S3(ContinuousSignal):
         return self.A * math.sin(2 * math.pi / self.T * (t - self.t1))
 
     def __str__(self):
-        return "S3 Sinusoida"
+        return "Sygnał sinusoidalny"
 
 
 # Sygnał sinusoidalny wyprostowany jednopołówkowo
@@ -203,7 +202,7 @@ class S4(ContinuousSignal):
         return 0.5 * self.A * (s + abs(s))
 
     def __str__(self):
-        return "S4 Sinusoida jednopołówkowo"
+        return "Sygnał sinusoidalny wyprostowany jednopołówkowo"
 
 
 # Sygnał sinusoidalny wyprostowany dwupołówkowo
@@ -216,7 +215,7 @@ class S5(ContinuousSignal):
         return self.A * abs(math.sin(2 * math.pi / self.T * (t - self.t1)))
 
     def __str__(self):
-        return "S5 Sinusoida dwupołówkowo"
+        return "Sygnał sinusoidalny wyprostowany dwupołówkowo"
 
 
 # Sygnał prostokątny
@@ -234,7 +233,7 @@ class S6(ContinuousSignal):
         return 0
 
     def __str__(self):
-        return "S6 Prostokątny"
+        return "Sygnał prostokątny"
 
 
 # Sygnał prostokątny symetryczny
@@ -252,7 +251,7 @@ class S7(ContinuousSignal):
         return -self.A
 
     def __str__(self):
-        return "S7 Prostokątny symetryczny"
+        return "Sygnał prostokątny symetryczny"
 
 
 # Sygnał trójkątny
@@ -270,7 +269,7 @@ class S8(ContinuousSignal):
         return -self.A / (self.T * (1 - self.kw)) * (t - k * self.T - self.t1) + self.A / (1 - self.kw)
 
     def __str__(self):
-        return "S8 Trójkątny"
+        return "Sygnał trójkątny"
 
 
 # Skok jednostkowy
@@ -288,7 +287,7 @@ class S9(ContinuousSignal):
             return 0
 
     def __str__(self):
-        return "S9 Skok jednostkowy"
+        return "Skok jednostkowy"
 
 
 # SYGNAŁY DYSKRETNE
@@ -306,7 +305,7 @@ class S10(DiscreteSignal):
             return 0
 
     def __str__(self):
-        return "S10 Impuls jednostkowy"
+        return "Impuls jednostkowy"
 
 
 # Szum impulsowy
@@ -322,7 +321,7 @@ class S11(DiscreteSignal):
             return 0
 
     def __str__(self):
-        return "S11 Szum impulsowy"
+        return "Szum impulsowy"
 
 if __name__ == "__main__":
     szumik = S2(35, 0, 10)
