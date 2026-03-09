@@ -1,13 +1,18 @@
 import math
+import numpy as np
 import random
 import pickle
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 from scipy import integrate
 
-# TODO: zoptymalizować wzory niektórych sygnałów
-# TODO: pozabezpieczać przed dzieleniem przez 0
-# TODO: co robić z tym errorem z całek
+# TODO: pozabezpieczać przed dzieleniem przez 0 i przedziały dla niektórych parametrów (T > 0, kw != 1, itp)
+# TODO: co robić z tym errorem z całek - zignorować 
+# TODO: GUI -> wyliczać częstotliwość i różne rzeczy na podstawie podanych parametrów ZAMIAST DOMYŚLNEJ
+# TODO: załatwić problem z funkcjami opartymi o losowość - S1, S2, S11 TRUDNE SPORE
+# pomysł na S1 i S2 - dodać jakąś klasę z zapisywaniem wartości
+# a S11 można nawet w niej samej idk
+# TODO: zmienić x, y na A i t PÓŹNIEJ
 
 class Signal(ABC):
     @abstractmethod
@@ -36,7 +41,12 @@ class Signal(ABC):
 
     def histogram(self, bins):
         _, Y = self.samples()
-        plt.hist(Y, bins=bins)
+        Y = np.array(Y)
+        bin_size = (Y.max() - Y.min()) / bins
+        edges = np.arange(Y.min(), Y.max(), bin_size)
+        classified = np.floor((Y - Y.min()) / bin_size).astype(int).clip(0, bins - 1)
+        counts = np.bincount(classified)
+        plt.bar(edges, counts, width=bin_size)
         plt.title("Histogram: " + str(self))
         plt.xlabel("A")
         plt.ylabel("liczność")
@@ -63,44 +73,34 @@ class Signal(ABC):
                              name=f"Loaded({data.get('name', '?')})")
 
     def save_txt(self, path):
-        pass
+        X, Y = self.samples()
+        with open(path, "w") as f:
+            f.write(f"name: {str(self)}\n")
+            f.write(f"is discrete: {getattr(self, 'is_discrete', False)}\n")
+            for x, y in zip(X, Y):
+                f.write(f"{x}\t{y}\n")
 
-    # TODO: DRY (_operation z lambdą?)
-    def __add__(self, other):
+    def _operation(self, other, op, symbol):
         X1, Y1 = self.samples()
         X2, Y2 = other.samples()
         n = min(len(Y1), len(Y2))
         X = X1[:n]
-        Y = [Y1[i] + Y2[i] for i in range(n)]
+        Y = [op(Y1[i], Y2[i]) for i in range(n)]
         is_discrete = getattr(self, "is_discrete", False) or getattr(other, "is_discrete", False)
-        return SampledSignal(X, Y, is_discrete=is_discrete, name=f"({self})+({other})")
+        return SampledSignal(X, Y, is_discrete=is_discrete, name=f"({self}){symbol}({other})")
+
+    def __add__(self, other):
+        return self._operation(other, lambda a, b: a + b, "+")
 
     def __sub__(self, other):
-        X1, Y1 = self.samples()
-        X2, Y2 = other.samples()
-        n = min(len(Y1), len(Y2))
-        X = X1[:n]
-        Y = [Y1[i] - Y2[i] for i in range(n)]
-        is_discrete = getattr(self, "is_discrete", False) or getattr(other, "is_discrete", False)
-        return SampledSignal(X, Y, is_discrete=is_discrete, name=f"({self})-({other})")
+        return self._operation(other, lambda a, b: a - b, "-")
 
     def __mul__(self, other):
-        X1, Y1 = self.samples()
-        X2, Y2 = other.samples()
-        n = min(len(Y1), len(Y2))
-        X = X1[:n]
-        Y = [Y1[i] * Y2[i] for i in range(n)]
-        is_discrete = getattr(self, "is_discrete", False) or getattr(other, "is_discrete", False)
-        return SampledSignal(X, Y, is_discrete=is_discrete, name=f"({self})*({other})")
-
+        return self._operation(other, lambda a, b: a * b, "*")
+    
     def __truediv__(self, other):
-        X1, Y1 = self.samples()
-        X2, Y2 = other.samples()
-        n = min(len(Y1), len(Y2))
-        X = X1[:n]
-        Y = [Y1[i] / Y2[i] for i in range(n)]
-        is_discrete = getattr(self, "is_discrete", False) or getattr(other, "is_discrete", False)
-        return SampledSignal(X, Y, is_discrete=is_discrete, name=f"({self})/({other})")
+        return self._operation(other, lambda a, b: a / b, "/")
+    
     
     @abstractmethod
     def mean(self):
@@ -118,10 +118,9 @@ class Signal(ABC):
     def variance(self):
         pass
 
-    @abstractmethod
     def rms(self):
-        pass
-
+        return math.sqrt(self.power())
+    
 
 class SampledSignal(Signal):
     def __init__(self, X, Y, is_discrete=False, name="SampledSignal"):
@@ -130,7 +129,7 @@ class SampledSignal(Signal):
         self.is_discrete = is_discrete
         self.name = name
 
-    # TODO
+    # TODO: chyba nie mieć value, używać samples
     def value(self, x):
         return None
 
@@ -141,19 +140,25 @@ class SampledSignal(Signal):
         return self.name
     
     def mean(self):
-        return
-    
+        if not self.Y:
+            return 0
+        return sum(self.Y) / len(self.Y)
+
     def mean_abs(self):
-        return
-    
+        if not self.Y:
+            return 0
+        return sum(abs(y) for y in self.Y) / len(self.Y)
+
     def power(self):
-        return
-    
+        if not self.Y:
+            return 0
+        return sum(y ** 2 for y in self.Y) / len(self.Y)
+
     def variance(self):
-        return
-    
-    def rms(self):
-        return
+        if not self.Y:
+            return 0
+        m = self.mean()
+        return sum((y - m) ** 2 for y in self.Y) / len(self.Y)
     
 
 class ContinuousSignal(Signal):
@@ -164,11 +169,12 @@ class ContinuousSignal(Signal):
         self.t1 = t1
         self.d = d
         self.f = f
-        self.t2 = d - t1
+        self.t2 = d + t1
 
     def samples(self):
         X, Y = [], []
-        n = self.f * self.d
+        # jeśli d lub f nie całkowite to liczba próbek zaokrąglona w dółs do jedności
+        n = int(self.f * self.d)
         for i in range(n):
             t = self.t1 + i / self.f
             X.append(t)
@@ -176,24 +182,21 @@ class ContinuousSignal(Signal):
         return X, Y
     
     def mean(self):
-        integral, err = integrate.quad(self.value, self.t1, self.t2)
+        integral, _ = integrate.quad(self.value, self.t1, self.t2)
         return integral / (self.t2 - self.t1)
     
     def mean_abs(self):
-        integral, err = integrate.quad(lambda t: abs(self.value(t)), self.t1, self.t2)
+        integral, _ = integrate.quad(lambda t: abs(self.value(t)), self.t1, self.t2)
         return integral / (self.t2 - self.t1)
     
     def power(self):
-        integral, err = integrate.quad(lambda t: self.value(t)**2, self.t1, self.t2)
+        integral, _ = integrate.quad(lambda t: self.value(t)**2, self.t1, self.t2)
         return integral / (self.t2 - self.t1)
     
     def variance(self):
         mean_val = self.mean()
-        integral, err = integrate.quad(lambda t: (self.value(t) - mean_val)**2, self.t1, self.t2)
+        integral, _ = integrate.quad(lambda t: (self.value(t) - mean_val)**2, self.t1, self.t2)
         return integral / (self.t2 - self.t1)
-    
-    def rms(self):
-        return math.sqrt(self.power())
 
 
 class DiscreteSignal(Signal):
@@ -226,9 +229,7 @@ class DiscreteSignal(Signal):
     def variance(self):
         mean_val = self.mean()
         return sum((self.value(n) - mean_val)**2 for n in range(self.n1, self.l + self.n1)) / self.l
-    
-    def rms(self):
-        return math.sqrt(self.power()) #może rms można wyrzucić do klasy wyżej skoro jest takie samo dla ciaglego i dyskretnego ale nwm jak z tym sampled
+
 
 # SYGNAŁY CIĄGŁE
 
@@ -243,9 +244,8 @@ class S1(ContinuousSignal):
 
 # Szum gaussowski
 class S2(ContinuousSignal):
-    # TODO: poprawic żeby był rozkład normalny
     def value(self, t):
-        return min(self.A, max(-self.A, random.gauss()))  #domyślnie mean=0, std=1
+        return random.gauss(0, self.A)
 
     def __str__(self):
         return "Szum gaussowski"
