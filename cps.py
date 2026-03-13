@@ -4,15 +4,14 @@ import random
 import pickle
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
-from scipy import integrate
 
 # TODO: pozabezpieczać przed dzieleniem przez 0 i przedziały dla niektórych parametrów (T > 0, kw != 1, itp)
-# TODO: co robić z tym errorem z całek - zignorować 
 # TODO: GUI -> wyliczać częstotliwość i różne rzeczy na podstawie podanych parametrów ZAMIAST DOMYŚLNEJ
-# TODO: załatwić problem z funkcjami opartymi o losowość - S1, S2, S11 TRUDNE SPORE
-# pomysł na S1 i S2 - dodać jakąś klasę z zapisywaniem wartości
-# a S11 można nawet w niej samej idk
 # TODO: zmienić x, y na A i t PÓŹNIEJ
+# TODO: zrobić ograniczenie do rozpatrywanego przedziału a poza nim 0 V
+# TODO: wyliczac czestotliwosc probkowania na podstawie podanych parametrów zeby wykresy byly optymalnie liczone V
+# TODO: plik tekstowy, zawartosc jak binarny
+# TODO: dopasować przedziały przy operacjach na sygnałach
 
 class Signal(ABC):
     @abstractmethod
@@ -101,22 +100,26 @@ class Signal(ABC):
     def __truediv__(self, other):
         return self._operation(other, lambda a, b: a / b, "/")
     
-    
-    @abstractmethod
     def mean(self):
-        pass
+        if not self.Y:
+            return 0
+        return sum(self.Y) / len(self.Y)
 
-    @abstractmethod
     def mean_abs(self):
-        pass
+        if not self.Y:
+            return 0
+        return sum(abs(y) for y in self.Y) / len(self.Y)
 
-    @abstractmethod
     def power(self):
-        pass
+        if not self.Y:
+            return 0
+        return sum(y ** 2 for y in self.Y) / len(self.Y)
 
-    @abstractmethod
     def variance(self):
-        pass
+        if not self.Y:
+            return 0
+        m = self.mean()
+        return sum((y - m) ** 2 for y in self.Y) / len(self.Y)
 
     def rms(self):
         return math.sqrt(self.power())
@@ -139,96 +142,57 @@ class SampledSignal(Signal):
     def __str__(self):
         return self.name
     
-    def mean(self):
-        if not self.Y:
-            return 0
-        return sum(self.Y) / len(self.Y)
-
-    def mean_abs(self):
-        if not self.Y:
-            return 0
-        return sum(abs(y) for y in self.Y) / len(self.Y)
-
-    def power(self):
-        if not self.Y:
-            return 0
-        return sum(y ** 2 for y in self.Y) / len(self.Y)
-
-    def variance(self):
-        if not self.Y:
-            return 0
-        m = self.mean()
-        return sum((y - m) ** 2 for y in self.Y) / len(self.Y)
-    
 
 class ContinuousSignal(Signal):
     is_discrete = False
 
-    def __init__(self, A, t1, d, f=2000):
+    def __init__(self, A, t1, d):
         self.A = A
         self.t1 = t1
         self.d = d
-        self.f = f
-        self.t2 = d + t1
-
+        self.fs = d * 1000
+    
     def samples(self):
         X, Y = [], []
         # jeśli d lub f nie całkowite to liczba próbek zaokrąglona w dółs do jedności
-        n = int(self.f * self.d)
+        n = int(self.fs * self.d)
         for i in range(n):
             t = self.t1 + i / self.f
             X.append(t)
             Y.append(self.value(t))
         return X, Y
     
-    def mean(self):
-        integral, _ = integrate.quad(self.value, self.t1, self.t2)
-        return integral / (self.t2 - self.t1)
-    
-    def mean_abs(self):
-        integral, _ = integrate.quad(lambda t: abs(self.value(t)), self.t1, self.t2)
-        return integral / (self.t2 - self.t1)
-    
-    def power(self):
-        integral, _ = integrate.quad(lambda t: self.value(t)**2, self.t1, self.t2)
-        return integral / (self.t2 - self.t1)
-    
-    def variance(self):
-        mean_val = self.mean()
-        integral, _ = integrate.quad(lambda t: (self.value(t) - mean_val)**2, self.t1, self.t2)
-        return integral / (self.t2 - self.t1)
+    def _t_in_domain(self, t):
+        if t >= self.t1 or t <= self.d + self.t1:
+            return True
+        else:
+            return False
 
 
 class DiscreteSignal(Signal):
     is_discrete = True
 
-    def __init__(self, A, n1, l, f=10):
+    def __init__(self, A, n1, l, fs):
         self.A = A
         self.n1 = n1
-        self.l = l #l = n2 - n1 + 1 -> nie musi być osobno n2 na razie
-        self.f = f
+        self.l = l
+        self.fs = fs
+        self.n2 = l + n1 - 1
 
     def samples(self):
         X, Y = [], []
         for i in range(self.l):
             n = self.n1 + i
-            t = n / self.f
+            t = n / self.fs
             X.append(t)
             Y.append(self.value(n))
         return X, Y
     
-    def mean(self):
-        return sum(self.value(n) for n in range(self.n1, self.l + self.n1)) / self.l
-    
-    def mean_abs(self):
-        return sum(abs(self.value(n)) for n in range(self.n1, self.l + self.n1)) / self.l
-    
-    def power(self):
-        return sum(self.value(n)**2 for n in range(self.n1, self.l + self.n1)) / self.l
-    
-    def variance(self):
-        mean_val = self.mean()
-        return sum((self.value(n) - mean_val)**2 for n in range(self.n1, self.l + self.n1)) / self.l
+    def _n_in_domain(self, n):
+        if n >= self.n1 or n <= self.n2:
+            return True
+        else:
+            return False
 
 
 # SYGNAŁY CIĄGŁE
@@ -236,7 +200,10 @@ class DiscreteSignal(Signal):
 # Szum o rozkładzie jednostajnym
 class S1(ContinuousSignal):
     def value(self, t):
-        return random.uniform(-self.A, self.A)
+        if self._t_in_domain(t):
+            return random.uniform(-self.A, self.A)
+        else:
+            return 0
 
     def __str__(self):
         return "Szum o rozkładzie jednostajnym"
@@ -245,7 +212,10 @@ class S1(ContinuousSignal):
 # Szum gaussowski
 class S2(ContinuousSignal):
     def value(self, t):
-        return random.gauss(0, self.A)
+        if self._t_in_domain(t):
+            return random.gauss(0, self.A)
+        else:
+            return 0
 
     def __str__(self):
         return "Szum gaussowski"
@@ -253,12 +223,16 @@ class S2(ContinuousSignal):
 
 # Sygnał sinusoidalny
 class S3(ContinuousSignal):
-    def __init__(self, A, T, t1, d, f=2000):
-        super().__init__(A, t1, d, f)
+    def __init__(self, A, T, t1, d):
+        super().__init__(A, t1, d)
         self.T = T
+        self.fs = 2.1/T
 
     def value(self, t):
-        return self.A * math.sin(2 * math.pi / self.T * (t - self.t1))
+        if self._t_in_domain(t):
+            return self.A * math.sin(2 * math.pi / self.T * (t - self.t1))
+        else:
+            return 0
 
     def __str__(self):
         return "Sygnał sinusoidalny"
@@ -266,14 +240,17 @@ class S3(ContinuousSignal):
 
 # Sygnał sinusoidalny wyprostowany jednopołówkowo
 class S4(ContinuousSignal):
-    def __init__(self, A, T, t1, d, f=2000):
-        super().__init__(A, t1, d, f)
+    def __init__(self, A, T, t1, d):
+        super().__init__(A, t1, d)
         self.T = T
+        self.fs = 2.1/T
 
-    # poprawka wzoru
     def value(self, t):
-        s = math.sin(2 * math.pi / self.T * (t - self.t1))
-        return 0.5 * self.A * (s + abs(s))
+        if self._t_in_domain(t):
+            s = math.sin(2 * math.pi / self.T * (t - self.t1))
+            return 0.5 * self.A * (s + abs(s))
+        else:
+            return 0
 
     def __str__(self):
         return "Sygnał sinusoidalny wyprostowany jednopołówkowo"
@@ -281,12 +258,16 @@ class S4(ContinuousSignal):
 
 # Sygnał sinusoidalny wyprostowany dwupołówkowo
 class S5(ContinuousSignal):
-    def __init__(self, A, T, t1, d, f=2000):
-        super().__init__(A, t1, d, f)
+    def __init__(self, A, T, t1, d):
+        super().__init__(A, t1, d)
         self.T = T
+        self.fs = 2.1/T
 
     def value(self, t):
-        return self.A * abs(math.sin(2 * math.pi / self.T * (t - self.t1)))
+        if self._t_in_domain(t):
+            return self.A * abs(math.sin(2 * math.pi / self.T * (t - self.t1)))
+        else:
+            return 0
 
     def __str__(self):
         return "Sygnał sinusoidalny wyprostowany dwupołówkowo"
@@ -294,17 +275,20 @@ class S5(ContinuousSignal):
 
 # Sygnał prostokątny
 class S6(ContinuousSignal):
-    def __init__(self, A, T, t1, d, kw, f=2000):
-        super().__init__(A, t1, d, f)
+    def __init__(self, A, T, t1, d, kw):
+        super().__init__(A, t1, d)
         self.T = T
         self.kw = kw
+        self.fs = 2.1/T
 
     def value(self, t):
-        k = math.floor((t - self.t1) / self.T)
-        if t >= k * self.T + self.t1 and t < self.kw * self.T + k * self.T + self.t1:
-            return self.A
-        # drugi if się i tak nie wykonywał jeśli pierwszy true, sprawdzić wzór
-        return 0
+        if self._t_in_domain(t):
+            k = math.floor((t - self.t1) / self.T)
+            if t >= k * self.T + self.t1 and t < self.kw * self.T + k * self.T + self.t1:
+                return self.A
+            return 0
+        else:
+            return 0
 
     def __str__(self):
         return "Sygnał prostokątny"
@@ -312,17 +296,20 @@ class S6(ContinuousSignal):
 
 # Sygnał prostokątny symetryczny
 class S7(ContinuousSignal):
-    def __init__(self, A, T, t1, d, kw, f=2000):
-        super().__init__(A, t1, d, f)
+    def __init__(self, A, T, t1, d, kw):
+        super().__init__(A, t1, d)
         self.T = T
         self.kw = kw
+        self.fs = 2.1/T
 
     def value(self, t):
-        k = math.floor((t - self.t1) / self.T)
-        if t >= k * self.T + self.t1 and t < self.kw * self.T + k * self.T + self.t1:
-            return self.A
-        # tak samo tutaj
-        return -self.A
+        if self._t_in_domain(t):
+            k = math.floor((t - self.t1) / self.T)
+            if t >= k * self.T + self.t1 and t < self.kw * self.T + k * self.T + self.t1:
+                return self.A
+            return -self.A
+        else:
+            return 0
 
     def __str__(self):
         return "Sygnał prostokątny symetryczny"
@@ -330,17 +317,20 @@ class S7(ContinuousSignal):
 
 # Sygnał trójkątny
 class S8(ContinuousSignal):
-    def __init__(self, A, T, t1, d, kw, f=2000):
-        super().__init__(A, t1, d, f)
+    def __init__(self, A, T, t1, d, kw):
+        super().__init__(A, t1, d)
         self.T = T
         self.kw = kw
+        self.fs = 2.1/T
 
     def value(self, t):
-        k = math.floor((t - self.t1) / self.T)
-        if t >= k * self.T + self.t1 and t < self.kw * self.T + k * self.T + self.t1:
-            return self.A / (self.kw * self.T) * (t - k * self.T - self.t1)
-        # i tu
-        return -self.A / (self.T * (1 - self.kw)) * (t - k * self.T - self.t1) + self.A / (1 - self.kw)
+        if self._t_in_domain(t):
+            k = math.floor((t - self.t1) / self.T)
+            if t >= k * self.T + self.t1 and t < self.kw * self.T + k * self.T + self.t1:
+                return self.A / (self.kw * self.T) * (t - k * self.T - self.t1)
+            return -self.A / (self.T * (1 - self.kw)) * (t - k * self.T - self.t1) + self.A / (1 - self.kw)
+        else:
+            return 0
 
     def __str__(self):
         return "Sygnał trójkątny"
@@ -348,15 +338,18 @@ class S8(ContinuousSignal):
 
 # Skok jednostkowy
 class S9(ContinuousSignal):
-    def __init__(self, A, t1, d, ts, f=2000):
-        super().__init__(A, t1, d, f)
+    def __init__(self, A, t1, d, ts):
+        super().__init__(A, t1, d)
         self.ts = ts
 
     def value(self, t):
-        if t > self.ts:
-            return self.A
-        elif t == self.ts:
-            return 0.5 * self.A
+        if self._t_in_domain(t):
+            if t > self.ts:
+                return self.A
+            elif t == self.ts:
+                return 0.5 * self.A
+            else:
+                return 0
         else:
             return 0
 
@@ -368,13 +361,16 @@ class S9(ContinuousSignal):
 
 # Impuls jednostkowy
 class S10(DiscreteSignal):
-    def __init__(self, A, ns, n1, l, f=10):
-        super().__init__(A, n1, l, f)
+    def __init__(self, A, ns, n1, l, fs):
+        super().__init__(A, n1, l, fs)
         self.ns = ns
 
     def value(self, n):
-        if n == self.ns:
-            return self.A
+        if self._n_in_domain(n):
+            if n == self.ns:
+                return self.A
+            else:
+                return 0
         else:
             return 0
 
@@ -384,13 +380,16 @@ class S10(DiscreteSignal):
 
 # Szum impulsowy
 class S11(DiscreteSignal):
-    def __init__(self, A, p, n1, l, f=10):
-        super().__init__(A, n1, l, f)
+    def __init__(self, A, p, n1, l, fs):
+        super().__init__(A, n1, l, fs)
         self.p = p
 
     def value(self, n):
-        if random.random() < self.p:
-            return self.A
+        if self._n_in_domain(n):
+            if random.random() < self.p:
+                return self.A
+            else:
+                return 0
         else:
             return 0
 
