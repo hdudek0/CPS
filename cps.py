@@ -157,13 +157,13 @@ class ContinuousSignal(Signal):
         # jeśli d lub f nie całkowite to liczba próbek zaokrąglona w dółs do jedności
         n = int(self.fs * self.d)
         for i in range(n):
-            t = self.t1 + i / self.f
+            t = self.t1 + i / self.fs
             X.append(t)
             Y.append(self.value(t))
         return X, Y
     
     def _t_in_domain(self, t):
-        if t >= self.t1 or t <= self.d + self.t1:
+        if t >= self.t1 and t <= self.d + self.t1:
             return True
         else:
             return False
@@ -189,7 +189,7 @@ class DiscreteSignal(Signal):
         return X, Y
     
     def _n_in_domain(self, n):
-        if n >= self.n1 or n <= self.n2:
+        if n >= self.n1 and n <= self.n2:
             return True
         else:
             return False
@@ -226,7 +226,6 @@ class S3(ContinuousSignal):
     def __init__(self, A, T, t1, d):
         super().__init__(A, t1, d)
         self.T = T
-        self.fs = 2.1/T
 
     def value(self, t):
         if self._t_in_domain(t):
@@ -243,7 +242,6 @@ class S4(ContinuousSignal):
     def __init__(self, A, T, t1, d):
         super().__init__(A, t1, d)
         self.T = T
-        self.fs = 2.1/T
 
     def value(self, t):
         if self._t_in_domain(t):
@@ -261,7 +259,6 @@ class S5(ContinuousSignal):
     def __init__(self, A, T, t1, d):
         super().__init__(A, t1, d)
         self.T = T
-        self.fs = 2.1/T
 
     def value(self, t):
         if self._t_in_domain(t):
@@ -279,7 +276,6 @@ class S6(ContinuousSignal):
         super().__init__(A, t1, d)
         self.T = T
         self.kw = kw
-        self.fs = 2.1/T
 
     def value(self, t):
         if self._t_in_domain(t):
@@ -300,7 +296,6 @@ class S7(ContinuousSignal):
         super().__init__(A, t1, d)
         self.T = T
         self.kw = kw
-        self.fs = 2.1/T
 
     def value(self, t):
         if self._t_in_domain(t):
@@ -321,7 +316,6 @@ class S8(ContinuousSignal):
         super().__init__(A, t1, d)
         self.T = T
         self.kw = kw
-        self.fs = 2.1/T
 
     def value(self, t):
         if self._t_in_domain(t):
@@ -398,8 +392,10 @@ class S11(DiscreteSignal):
 
 if __name__ == "__main__":
     szumik = S2(35, 0, 10)
-    sinusik = S5(10, 3, 0, 10)
+    sinusik = S3(10, 3, 0, 10)
     skoczek = S9(10, -10, 20, 0)
+
+    sinusik.plot()
 
     szumik.plot()
     szumik.histogram(40)
@@ -418,7 +414,7 @@ if __name__ == "__main__":
     wczytany.plot()
 
     # dyskretny
-    szumik2 = S11(5, 0.2, -5, 40)
+    szumik2 = S11(5, 0.2, -5, 40, 100)
     szumik2.save_bin("s11.bin")
     w = Signal.load("s11.bin")
     w.plot()
