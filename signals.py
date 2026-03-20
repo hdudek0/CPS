@@ -4,16 +4,8 @@ import pickle
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 
-# TODO: pozabezpieczać przed dzieleniem przez 0 i przedziały dla niektórych parametrów (T > 0, kw != 1, itp) GUI
-# TODO: zmienić x, y na A i t PÓŹNIEJ
-# TODO: zrobić ograniczenie do rozpatrywanego przedziału a poza nim 0 V
-# TODO: wyliczac czestotliwosc probkowania na podstawie podanych parametrów zeby wykresy byly optymalnie liczone V
-# TODO: plik tekstowy, zawartosc jak binarny V
-# TODO: dopasować przedziały przy operacjach na sygnałach -> zaakceptował nasze podejście ale proponował też blokowanie w GUI
-# TODO: GUI nie może użyć metod plot i hist - pyside musi mieć obiekt ax i coś tam. imo ok że w gui jest, tutaj nie trzeba. V (zakomentowane)
-# TODO: konwertować parametry na int! (patrz linia 174)
-# TODO: dopasować domyślne parametry (defaults) w GUI
-# TODO: przetestować (trochę testowałem ale nie po najnowszych zmianach)
+# TODO: zmienić x, y na A i t -> jeśli ci się chce
+# TODO: dopasować domyślne parametry (defaults) w GUI -> też opcjonalnie one są jakby ok
 
 class Signal(ABC):
     @abstractmethod
@@ -23,35 +15,6 @@ class Signal(ABC):
     @abstractmethod
     def samples(self):
         pass
-
-    # def plot(self):
-        # X, Y = self.samples()
-        # plt.axhline(0, color='darkgray', linewidth=1, linestyle="--")
-        # plt.axvline(0, color='darkgray', linewidth=1, linestyle="--")
-
-        # if getattr(self, "is_discrete", False):
-            # plt.scatter(X, Y)
-            # plt.xlabel("t[s]", fontsize=12, fontweight="bold")
-        # else:
-            # plt.plot(X, Y, color="darkgreen")
-            # plt.xlabel("t[s]", fontsize=12, fontweight="bold")
-
-        # plt.title(str(self), fontsize=14, fontweight="bold")
-        # plt.ylabel("A", rotation=0, fontsize=12, fontweight="bold")
-        # plt.show()
-
-    # def histogram(self, bins):
-        # _, Y = self.samples()
-        # Y = np.array(Y)
-        # bin_size = (Y.max() - Y.min()) / bins
-        # edges = np.arange(Y.min(), Y.max(), bin_size)
-        # classified = np.floor((Y - Y.min()) / bin_size).astype(int).clip(0, bins - 1)
-        # counts = np.bincount(classified)
-        # plt.bar(edges, counts, width=bin_size)
-        # plt.title("Histogram: " + str(self))
-        # plt.xlabel("A")
-        # plt.ylabel("count")
-        # plt.show()
 
     @staticmethod
     def load(path):
@@ -403,32 +366,3 @@ class S11(DiscreteSignal):
 
     def __str__(self):
         return "Szum impulsowy"
-
-# if __name__ == "__main__":
-#     szumik = S2(35, 0, 10)
-#     sinusik = S3(10, 3, 0, 10)
-#     skoczek = S9(10, -10, 20, 0)
-
-#     sinusik.plot()
-
-#     szumik.plot()
-#     szumik.histogram(40)
-
-#     suma = szumik + sinusik
-#     roznica = sinusik - skoczek
-#     iloczyn = sinusik * skoczek
-
-#     # TODO: ogarnąć przedtem dzielenie przez 0
-#     iloraz = None
-
-#     suma.plot()
-
-#     suma.save_bin("suma.bin")
-#     wczytany = Signal.load("suma.bin")
-#     wczytany.plot()
-
-#     # dyskretny
-#     szumik2 = S11(5, 0.2, -5, 40, 100)
-#     szumik2.save_bin("s11.bin")
-#     w = Signal.load("s11.bin")
-#     w.plot()

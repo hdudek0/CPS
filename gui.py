@@ -21,7 +21,6 @@ SIGNAL_DEFS = {
     "Szum impulsowy": (S11, ["A", "p", "n1", "l", "fs"])
 }
 
-# odclaunować komentarze
 # minimum, maksimum, czy całkowity
 PARAM_RANGE = {
     "A": (None, None, False),
@@ -221,10 +220,12 @@ class MainWindow(QMainWindow):
         sig = cls(*args)
         is_continuous = isinstance(sig, ContinuousSignal)
         sampled = to_sampled(sig, is_continuous)
+        # cls not in (S1, S2) -> szumy również rysujemy punktami
+        sampled.draw_continuous = is_continuous and cls not in (S1, S2)
         self.signals.append(sampled)
         self.current_idx = len(self.signals) - 1
         self.refresh_op_combos()
-        self.show_current(draw_continuous=is_continuous and cls not in (S1, S2)) # szumy rysujemy punktami
+        self.show_current()
 
     def navigate(self, delta):
         if not self.signals:
@@ -232,10 +233,11 @@ class MainWindow(QMainWindow):
         self.current_idx = max(0, min(len(self.signals) - 1, self.current_idx + delta))
         self.show_current()
 
-    def show_current(self, draw_continuous=False):
+    def show_current(self):
         if self.current_idx < 0 or self.current_idx >= len(self.signals):
             return
         sig = self.signals[self.current_idx]
+        draw_continuous = getattr(sig, 'draw_continuous', False)
         self.nav_label.setText(f"{self.current_idx + 1}/{len(self.signals)}")
 
         X, Y = sig.samples()
@@ -263,6 +265,7 @@ class MainWindow(QMainWindow):
             centers = edges + bin_size / 2
             classified = np.floor((Y - Y.min()) / bin_size).astype(int).clip(0, bins - 1)
             counts = np.bincount(classified)
+            # niewielkie przerwy dla czytelności
             ax2.bar(centers, counts, width=bin_size * 0.9)
         ax2.set_title("Histogram")
         ax2.set_xlabel("A")
@@ -300,7 +303,7 @@ class MainWindow(QMainWindow):
         self.refresh_op_combos()
         self.show_current()
         
-    def add_extension(path, ext):
+    def add_extension(self, path, ext):
         if not path.lower().endswith(ext):
             path += ext
         return path
@@ -312,11 +315,11 @@ class MainWindow(QMainWindow):
         if fmt == "bin":
             path, _ = QFileDialog.getSaveFileName(self, "Zapis binarny", "", "Binary (*.bin)")
             if path:
-                sig.save_bin(add_extension(path, ".bin"))
+                sig.save_bin(self.add_extension(path, ".bin"))
         else:
             path, _ = QFileDialog.getSaveFileName(self, "Plik tekstowy", "", "Text (*.txt)")
             if path:
-                sig.save_txt(add_extension(path, ".txt"))
+                sig.save_txt(self.add_extension(path, ".txt"))
 
     def load_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Zapis binarny", "", "Binary (*.bin)")
