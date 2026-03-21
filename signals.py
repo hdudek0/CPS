@@ -2,10 +2,7 @@ import math
 import random
 import pickle
 from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
 
-# TODO: zmienić x, y na A i t -> jeśli ci się chce
-# TODO: dopasować domyślne parametry (defaults) w GUI -> też opcjonalnie one są jakby ok
 
 class Signal(ABC):
     @abstractmethod
@@ -18,8 +15,11 @@ class Signal(ABC):
 
     @staticmethod
     def load(path):
-        with open(path, "rb") as f:
-            data = pickle.load(f)
+        try:
+            with open(path, "rb") as f:
+                data = pickle.load(f)
+        except Exception:
+            raise FileNotFoundError("Nie udało się załadować pliku")
         return SampledSignal(data["X"], data["Y"],
                              f"Wczytany({data.get('name', '?')})",
                              data["fs"], data["n1"], data["l"])
@@ -81,18 +81,25 @@ class SampledSignal(Signal):
             "n1": self.n1,
             "l": self.l
         }
-        with open(path, "wb") as f:
-            pickle.dump(data, f)
+        try:
+            with open(path, "wb") as f:
+                pickle.dump(data, f)
+        except Exception:
+            raise FileNotFoundError("Nie udało się zapisać pliku")
             
     def save_txt(self, path):
         X, Y = self.samples()
-        with open(path, "w") as f:
-            f.write(f"nazwa: {str(self)}\n")
-            f.write(f"czestotliwosc probkowania (fs): {str(self.fs)}\n")
-            f.write(f"numer pierwszej probki (n1): {str(self.n1)}\n")
-            f.write(f"liczba probek (l): {str(self.l)}\n")
-            for x, y in zip(X, Y):
-                f.write(f"{x}\t{y}\n")
+        try:
+            with open(path, "w") as f:
+                f.write(f"nazwa: {str(self)}\n")
+                f.write(f"czestotliwosc probkowania (fs): {str(self.fs)}\n")
+                f.write(f"numer pierwszej probki (n1): {str(self.n1)}\n")
+                f.write(f"liczba probek (l): {str(self.l)}\n")
+                for x, y in zip(X, Y):
+                    f.write(f"{x}\t{y}\n")
+        except Exception:
+            raise FileNotFoundError("Nie udało się zapisać pliku")
+
 
     def _operation(self, other, op, symbol):
         X1, Y1 = self.samples()

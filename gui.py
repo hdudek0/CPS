@@ -2,23 +2,23 @@ import sys
 import numpy as np
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox, QTextEdit, QFileDialog, QGroupBox,
-    QMessageBox)
+    QMessageBox, QDialog)
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from signals import (S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11,
                      SampledSignal, ContinuousSignal, Signal)
 
 SIGNAL_DEFS = {
-    "Szum o rozkładzie jednostajnym": (S1, ["A", "t1", "fs", "d"]),
-    "Szum gaussowski": (S2, ["A", "t1", "fs", "d"]),
-    "Sygnał sinusoidalny": (S3, ["A", "T", "t1", "fs", "d"]),
-    "Sygnał sinusoidalny wyprostowany jednopołówkowo": (S4, ["A", "T", "t1", "fs", "d"]),
-    "Sygnał sinusoidalny wyprostowany dwupołówkowo": (S5, ["A", "T", "t1", "fs", "d"]),
-    "Sygnał prostokątny": (S6, ["A", "T", "t1", "fs", "d", "kw"]),
-    "Sygnał prostokątny symetryczny": (S7, ["A", "T", "t1", "fs", "d", "kw"]),
-    "Sygnał trójkątny": (S8, ["A", "T", "t1", "fs", "d", "kw"]),
-    "Skok jednostkowy": (S9, ["A", "t1", "fs", "d", "ts"]),
-    "Impuls jednostkowy": (S10, ["A", "ns", "n1", "l", "fs"]),
+    "Szum o rozkładzie jednostajnym": (S1, ["A", "t1[s]", "fs[Hz]", "d[s]"]),
+    "Szum gaussowski": (S2, ["A", "t1[s]", "fs[Hz]", "d[s]"]),
+    "Sygnał sinusoidalny": (S3, ["A", "T[s]", "t1[s]", "fs[Hz]", "d[s]"]),
+    "Sygnał sinusoidalny wyprostowany jednopołówkowo": (S4, ["A", "T[s]", "t1[s]", "fs[Hz]", "d[s]"]),
+    "Sygnał sinusoidalny wyprostowany dwupołówkowo": (S5, ["A", "T[s]", "t1[s]", "fs[Hz]", "d[s]"]),
+    "Sygnał prostokątny": (S6, ["A", "T[s]", "t1[s]", "fs[Hz]", "d[s]", "kw"]),
+    "Sygnał prostokątny symetryczny": (S7, ["A", "T[s]", "t1[s]", "fs[Hz]", "d[s]", "kw"]),
+    "Sygnał trójkątny": (S8, ["A", "T[s]", "t1[s]", "fs[Hz]", "d[s]", "kw"]),
+    "Skok jednostkowy": (S9, ["A", "t1[s]", "fs[Hz]", "d[s]", "ts[s]"]),
+    "Impuls jednostkowy": (S10, ["A", "ns", "n1", "l", "fs[Hz]"]),
     "Szum impulsowy": (S11, ["A", "p", "n1", "l", "fs"])
 }
 
@@ -125,17 +125,20 @@ class MainWindow(QMainWindow):
         btn_save_bin.clicked.connect(lambda: self.save_file("bin"))
         btn_save_txt = QPushButton("Eksportuj jako .txt")
         btn_save_txt.clicked.connect(lambda: self.save_file("txt"))
+        btn_show_txt = QPushButton("Pokaż .txt")
+        btn_show_txt.clicked.connect(self.show_txt_file)
         btn_load = QPushButton("Wczytaj")
         btn_load.clicked.connect(self.load_file)
         io_row.addWidget(btn_save_bin)
         io_row.addWidget(btn_save_txt)
+        io_row.addWidget(btn_show_txt)
         io_row.addWidget(btn_load)
         left.addLayout(io_row)
 
         # statystyki
         self.stats_text = QTextEdit()
         self.stats_text.setReadOnly(True)
-        self.stats_text.setMaximumHeight(120)
+        self.stats_text.setFixedHeight(100)
         left.addWidget(QLabel("Statystyki:"))
         left.addWidget(self.stats_text)
         left.addStretch()
@@ -162,8 +165,8 @@ class MainWindow(QMainWindow):
         if text not in SIGNAL_DEFS:
             return
         _, params = SIGNAL_DEFS[text]
-        defaults = {"A": "5", "T": "1", "t1": "0", "d": "5", "kw": "0.5",
-                    "ts": "1", "n1": "0", "l": "10", "fs": "1000", "ns": "5", "p": "0.5"}
+        defaults = {"A": "5", "T[s]": "1", "t1[s]": "0", "d[s]": "5", "kw": "0.5",
+                    "ts[s]": "1", "n1": "0", "l": "10", "fs[Hz]": "1000", "ns": "5", "p": "0.5"}
         for p in params:
             row = QWidget()
             rl = QHBoxLayout(row)
@@ -312,7 +315,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Błąd", str(e))
         
     def add_extension(self, path, ext):
-        if not path.lower().endswith(ext):
+        if not path.lower().endswith(ext.lower()):
             path += ext
         return path
 
@@ -323,16 +326,46 @@ class MainWindow(QMainWindow):
         if fmt == "bin":
             path, _ = QFileDialog.getSaveFileName(self, "Zapis binarny", "", "Binary (*.bin)")
             if path:
-                sig.save_bin(self.add_extension(path, ".bin"))
+                try:
+                    sig.save_bin(self.add_extension(path, ".bin"))
+                except FileNotFoundError as e:
+                    QMessageBox.warning(self, "Błąd", str(e))
         else:
-            path, _ = QFileDialog.getSaveFileName(self, "Plik tekstowy", "", "Text (*.txt)")
+            path, _ = QFileDialog.getSaveFileName(self, "Plik tekstowy", "", "Signal text (*.sig.txt)")
             if path:
-                sig.save_txt(self.add_extension(path, ".txt"))
+                try:
+                    sig.save_txt(self.add_extension(path, ".sig.txt"))
+                except FileNotFoundError as e:
+                    QMessageBox.warning(self, "Błąd", str(e))
+
+    def show_txt_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Otwórz plik tekstowy", "", "Signal text (*.sig.txt)")
+        if not path:
+            return
+        try:
+            with open(path, "r") as f:
+                content = f.read()
+        except Exception as e:
+            QMessageBox.warning(self, "Błąd", str(e))
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle(path)
+        dlg.resize(600, 400)
+        layout = QVBoxLayout(dlg)
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setPlainText(content)
+        layout.addWidget(text_edit)
+        dlg.exec()
 
     def load_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Zapis binarny", "", "Binary (*.bin)")
         if path:
-            sig = Signal.load(path)
+            try:
+                sig = Signal.load(path)
+            except FileNotFoundError as e:
+                QMessageBox.warning(self, "Błąd", str(e))
+                return
             self.signals.append(sig)
             self.current_idx = len(self.signals) - 1
             self.refresh_op_combos()
