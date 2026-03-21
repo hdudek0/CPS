@@ -100,7 +100,6 @@ class SampledSignal(Signal):
         except Exception:
             raise FileNotFoundError("Nie udało się zapisać pliku")
 
-
     def _operation(self, other, op, symbol):
         X1, Y1 = self.samples()
         X2, Y2 = other.samples()

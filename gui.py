@@ -123,16 +123,16 @@ class MainWindow(QMainWindow):
         io_row = QHBoxLayout()
         btn_save_bin = QPushButton("Zapisz")
         btn_save_bin.clicked.connect(lambda: self.save_file("bin"))
+        btn_load = QPushButton("Wczytaj")
+        btn_load.clicked.connect(self.load_file)
         btn_save_txt = QPushButton("Eksportuj jako .txt")
         btn_save_txt.clicked.connect(lambda: self.save_file("txt"))
         btn_show_txt = QPushButton("Pokaż .txt")
         btn_show_txt.clicked.connect(self.show_txt_file)
-        btn_load = QPushButton("Wczytaj")
-        btn_load.clicked.connect(self.load_file)
         io_row.addWidget(btn_save_bin)
+        io_row.addWidget(btn_load)
         io_row.addWidget(btn_save_txt)
         io_row.addWidget(btn_show_txt)
-        io_row.addWidget(btn_load)
         left.addLayout(io_row)
 
         # statystyki
@@ -176,7 +176,6 @@ class MainWindow(QMainWindow):
             rl.addWidget(le)
             self.params_layout.addWidget(row)
             self.param_inputs[p] = le
-
 
     def get_params(self):
         result = {}
@@ -277,7 +276,7 @@ class MainWindow(QMainWindow):
             ax2.bar(centers, counts, width=bin_size * 0.9)
         ax2.set_title("Histogram")
         ax2.set_xlabel("A")
-        ax2.set_ylabel("ilość")
+        ax2.set_ylabel("liczba próbek")
 
         self.fig.tight_layout()
         self.canvas.draw()
