@@ -87,7 +87,10 @@ class SampledSignal(Signal):
     def save_txt(self, path):
         X, Y = self.samples()
         with open(path, "w") as f:
-            f.write(f"name: {str(self)}\n")
+            f.write(f"nazwa: {str(self)}\n")
+            f.write(f"czestotliwosc probkowania (fs): {str(self.fs)}\n")
+            f.write(f"numer pierwszej probki (n1): {str(self.n1)}\n")
+            f.write(f"liczba probek (l): {str(self.l)}\n")
             for x, y in zip(X, Y):
                 f.write(f"{x}\t{y}\n")
 
@@ -121,7 +124,11 @@ class SampledSignal(Signal):
         return self._operation(other, safe_div, "/")
         
 
-class ContinuousSignal(Signal):
+class ContinuousSignal(Signal,  ABC):
+    @abstractmethod
+    def value(self, t):
+        pass
+
     def __init__(self, A, t1, fs, d):
         self.A = A
         self.t1 = t1
@@ -142,7 +149,11 @@ class ContinuousSignal(Signal):
         return t >= self.t1 and t <= self.d + self.t1
 
 
-class DiscreteSignal(Signal):
+class DiscreteSignal(Signal, ABC):
+    @abstractmethod
+    def value(self, n):
+        pass
+    
     def __init__(self, A, n1, l, fs):
         self.A = A
         self.n1 = n1

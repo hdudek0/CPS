@@ -1,7 +1,8 @@
 import sys
 import numpy as np
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox, QTextEdit, QFileDialog, QGroupBox)
+    QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox, QTextEdit, QFileDialog, QGroupBox,
+    QMessageBox)
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from signals import (S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11,
@@ -162,7 +163,7 @@ class MainWindow(QMainWindow):
             return
         _, params = SIGNAL_DEFS[text]
         defaults = {"A": "5", "T": "1", "t1": "0", "d": "5", "kw": "0.5",
-                    "ts": "1", "n1": "0", "l": "10", "fs": "100", "ns": "5", "p": "0.5"}
+                    "ts": "1", "n1": "0", "l": "10", "fs": "1000", "ns": "5", "p": "0.5"}
         for p in params:
             row = QWidget()
             rl = QHBoxLayout(row)
@@ -247,10 +248,10 @@ class MainWindow(QMainWindow):
         ax1 = self.fig.add_subplot(211) # 2 rzędy, 1 kolumna, index od 1
         ax1.axhline(0, color='darkgray', linewidth=1, linestyle="--")
         if draw_continuous:
-            ax1.plot(X, Y, color="lightblue", marker='.', markersize=3,
+            ax1.plot(X, Y, color="lightblue", marker='.', markersize=2,
                      markeredgecolor="darkgreen", markerfacecolor="darkgreen")
         else:
-            ax1.scatter(X, Y, color="darkgreen")
+            ax1.scatter(X, Y, color="darkgreen", s=9)
         ax1.set_title(str(sig))
         ax1.set_xlabel("t[s]")
         ax1.set_ylabel("A")
@@ -297,7 +298,7 @@ class MainWindow(QMainWindow):
         ops = {"+": a.__add__, "-": a.__sub__, "*": a.__mul__, "/": a.__truediv__}
         result = ops[op](b)
         if not result:
-            raise ValueError("Sygnały muszą mieć tę samą częstotliwość próbkowania i liczbę próbek.")
+            raise ValueError("Sygnały muszą mieć tę samą częstotliwość próbkowania, liczbę próbek oraz zaczynać się w tym samym czasie.")
         self.signals.append(result)
         self.current_idx = len(self.signals) - 1
         self.refresh_op_combos()
