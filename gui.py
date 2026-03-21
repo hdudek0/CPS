@@ -216,7 +216,11 @@ class MainWindow(QMainWindow):
     def generate(self):
         text = self.type_combo.currentText()
         cls, param_names = SIGNAL_DEFS[text]
-        params = self.get_params()
+        try:
+            params = self.get_params()
+        except ValueError as e:
+            QMessageBox.warning(self, "Błąd", str(e))
+            return
         args = [params[p] for p in param_names]
         sig = cls(*args)
         is_continuous = isinstance(sig, ContinuousSignal)
@@ -290,19 +294,22 @@ class MainWindow(QMainWindow):
                 combo.addItem(f"[{i+1}] {s.name}")
 
     def do_operation(self):
-        if len(self.signals) < 2:
-            return
-        a = self.signals[self.op_a.currentIndex()]
-        b = self.signals[self.op_b.currentIndex()]
-        op = self.op_type.currentText()
-        ops = {"+": a.__add__, "-": a.__sub__, "*": a.__mul__, "/": a.__truediv__}
-        result = ops[op](b)
-        if not result:
-            raise ValueError("Sygnały muszą mieć tę samą częstotliwość próbkowania, liczbę próbek oraz zaczynać się w tym samym czasie.")
-        self.signals.append(result)
-        self.current_idx = len(self.signals) - 1
-        self.refresh_op_combos()
-        self.show_current()
+        try:
+            if len(self.signals) < 2:
+                return
+            a = self.signals[self.op_a.currentIndex()]
+            b = self.signals[self.op_b.currentIndex()]
+            op = self.op_type.currentText()
+            ops = {"+": a.__add__, "-": a.__sub__, "*": a.__mul__, "/": a.__truediv__}
+            result = ops[op](b)
+            if not result:
+                raise ValueError("Sygnały muszą mieć tę samą częstotliwość próbkowania, liczbę próbek oraz zaczynać się w tym samym czasie.")
+            self.signals.append(result)
+            self.current_idx = len(self.signals) - 1
+            self.refresh_op_combos()
+            self.show_current()
+        except ValueError as e:
+            QMessageBox.warning(self, "Błąd", str(e))
         
     def add_extension(self, path, ext):
         if not path.lower().endswith(ext):
