@@ -25,16 +25,16 @@ SIGNAL_DEFS = {
 # minimum, maksimum, czy całkowity
 PARAM_RANGE = {
     "A": (1e-9, 1e9, False),
-    "T[s]": (1e-9, 1e9, False), # okres musi być > 0
+    "T[s]": (1e-9, 1e9, False),
     "t1[s]": (-1e9, 1e9, False),
-    "d[s]": (1e-9, 60, False), # czas trwania musi być > 0, nie powinien być za długi
-    "kw": (0.0, 1.0, False), # współczynnik wypełnienia musi być w [0, 1]
+    "d[s]": (1e-9, 60, False),
+    "kw": (0.0, 1.0, False),
     "ts[s]": (-1e9, 1e9, False),
     "n1": (-1e9, 1e9, True),
-    "l": (1, 1e9, True), # liczba próbek musi być >= 1
-    "fs[Hz]": (1e-9, 1e5, False), # częstotliwość próbkowania musi być > 0
+    "l": (1, 1e9, True),
+    "fs[Hz]": (1e-9, 1e5, False),
     "ns": (-1e9, 1e9, True),
-    "p": (0.0, 1.0, False), # prawdopodobieństwo musi być w [0, 1]
+    "p": (0.0, 1.0, False),
 }
 
 def to_sampled(sig, is_continuous):
@@ -53,31 +53,27 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Generator Sygnałów")
-        self.signals = []  # lista typu SampledSignal
+        self.signals = []
         self.current_idx = -1
 
         central = QWidget()
         self.setCentralWidget(central)
         root = QHBoxLayout(central)
 
-        # sterowanie po lewej
         left = QVBoxLayout()
         root.addLayout(left, 1)
 
-        # wybór sygnału
         self.type_combo = QComboBox()
         self.type_combo.addItems(SIGNAL_DEFS.keys())
         self.type_combo.currentTextChanged.connect(self.on_type_changed)
         left.addWidget(QLabel("Typ sygnału:"))
         left.addWidget(self.type_combo)
 
-        # parametry sygnału
         self.params_group = QGroupBox("Parametry")
         self.params_layout = QVBoxLayout(self.params_group)
         self.param_inputs = {}
         left.addWidget(self.params_group)
 
-        # beans
         h = QHBoxLayout()
         h.addWidget(QLabel("Liczba przedziałów histogramu:"))
         self.bins_spin = QSpinBox()
@@ -90,7 +86,6 @@ class MainWindow(QMainWindow):
         btn_gen.clicked.connect(self.generate)
         left.addWidget(btn_gen)
 
-        # nawigacja między sygnałami
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("< Poprzedni")
         self.btn_prev.clicked.connect(lambda: self.navigate(-1))
@@ -102,7 +97,6 @@ class MainWindow(QMainWindow):
         nav.addWidget(self.btn_next)
         left.addLayout(nav)
 
-        # operacje
         op_group = QGroupBox("Operacje")
         op_lay = QVBoxLayout(op_group)
         op_row = QHBoxLayout()
@@ -119,7 +113,6 @@ class MainWindow(QMainWindow):
         op_lay.addWidget(btn_op)
         left.addWidget(op_group)
 
-        # pliki
         io_row = QHBoxLayout()
         btn_save_bin = QPushButton("Zapisz")
         btn_save_bin.clicked.connect(lambda: self.save_file("bin"))
@@ -135,7 +128,6 @@ class MainWindow(QMainWindow):
         io_row.addWidget(btn_show_txt)
         left.addLayout(io_row)
 
-        # statystyki
         self.stats_text = QTextEdit()
         self.stats_text.setReadOnly(True)
         self.stats_text.setFixedHeight(100)
@@ -143,7 +135,6 @@ class MainWindow(QMainWindow):
         left.addWidget(self.stats_text)
         left.addStretch()
 
-        # wykresy po prawej
         right = QVBoxLayout()
         root.addLayout(right, 2)
 
@@ -155,7 +146,6 @@ class MainWindow(QMainWindow):
         self.resize(1000, 600)
 
     def on_type_changed(self, text):
-        # wyczyszczenie pól parametrów
         for i in reversed(range(self.params_layout.count())):
             w = self.params_layout.itemAt(i).widget()
             if w:
@@ -183,14 +173,13 @@ class MainWindow(QMainWindow):
  
         for k, widget in self.param_inputs.items():
             raw = widget.text().strip()
-            # podano nie-liczbę
             try:
                 val = float(raw)
             except ValueError:
                 errors.append(f"  - {k}: '{raw}' nie jest liczbą")
                 widget.setStyleSheet("border: 1px solid red;")
                 continue
-            # złe wartości parametrów
+
             range = PARAM_RANGE.get(k)
             valid = True
             if range:
@@ -208,7 +197,7 @@ class MainWindow(QMainWindow):
                 widget.setStyleSheet("border: 1px solid red;")
                 continue
  
-            widget.setStyleSheet("") # usuwa czerwoną obramówkę po wcześniejszym błędzie
+            widget.setStyleSheet("")
             result[k] = val
  
         if errors:
@@ -232,7 +221,7 @@ class MainWindow(QMainWindow):
                      parametrów liczba próbek wynosi 0.")
             return
         sampled = to_sampled(sig, is_continuous)
-        # cls not in (S1, S2) -> szumy również rysujemy punktami
+        # cls not in (S1, S2) -> szumy również rysujemy punktami dla czytelności
         sampled.draw_continuous = is_continuous and cls not in (S1, S2)
         self.signals.append(sampled)
         self.current_idx = len(self.signals) - 1
@@ -256,7 +245,7 @@ class MainWindow(QMainWindow):
         bins = self.bins_spin.value()
 
         self.fig.clear()
-        ax1 = self.fig.add_subplot(211) # 2 rzędy, 1 kolumna, index od 1
+        ax1 = self.fig.add_subplot(211)
         ax1.axhline(0, color='darkgray', linewidth=1, linestyle="--")
         if draw_continuous:
             ax1.plot(X, Y, color="lightblue", marker='.', markersize=2,
@@ -277,7 +266,6 @@ class MainWindow(QMainWindow):
             centers = edges + bin_size / 2
             classified = np.floor((Y - Y.min()) / bin_size).astype(int).clip(0, bins - 1)
             counts = np.bincount(classified)
-            # niewielkie przerwy dla czytelności
             ax2.bar(centers, counts, width=bin_size * 0.9)
         ax2.set_title("Histogram")
         ax2.set_xlabel("A")

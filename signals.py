@@ -143,7 +143,6 @@ class ContinuousSignal(Signal,  ABC):
     
     def samples(self):
         X, Y = [], []
-        # jeśli d * fs nie całkowite to liczba próbek zaokrąglona w dół do jedności
         n = int(self.fs * self.d)
         for i in range(n):
             t = self.t1 + i / self.fs
