@@ -24,16 +24,16 @@ SIGNAL_DEFS = {
 
 # minimum, maksimum, czy całkowity
 PARAM_RANGE = {
-    "A": (None, None, False),
-    "T": (1e-9, None, False), # okres musi być > 0
-    "t1": (None, None, False),
-    "d": (1e-9, None, False), # czas trwania musi być > 0
+    "A": (1e-9, 1e9, False),
+    "T[s]": (1e-9, 1e9, False), # okres musi być > 0
+    "t1[s]": (-1e9, 1e9, False),
+    "d[s]": (1e-9, 60, False), # czas trwania musi być > 0, nie powinien być za długi
     "kw": (0.0, 1.0, False), # współczynnik wypełnienia musi być w [0, 1]
-    "ts": (None, None, False),
-    "n1": (None, None, True),
-    "l": (1, None, True), # liczba próbek musi być >= 1
-    "fs": (1e-9, None, False), # częstotliwość próbkowania musi być > 0
-    "ns": (None, None, True),
+    "ts[s]": (-1e9, 1e9, False),
+    "n1": (-1e9, 1e9, True),
+    "l": (1, 1e9, True), # liczba próbek musi być >= 1
+    "fs[Hz]": (1e-9, 1e5, False), # częstotliwość próbkowania musi być > 0
+    "ns": (-1e9, 1e9, True),
     "p": (0.0, 1.0, False), # prawdopodobieństwo musi być w [0, 1]
 }
 
@@ -226,6 +226,11 @@ class MainWindow(QMainWindow):
         args = [params[p] for p in param_names]
         sig = cls(*args)
         is_continuous = isinstance(sig, ContinuousSignal)
+        if is_continuous and int(sig.fs * sig.d) < 1:
+            QMessageBox.warning(self, "Błąd",
+                "Nie można wygenerować sygnału: w wybranej konfiguracji\
+                     parametrów liczba próbek wynosi 0.")
+            return
         sampled = to_sampled(sig, is_continuous)
         # cls not in (S1, S2) -> szumy również rysujemy punktami
         sampled.draw_continuous = is_continuous and cls not in (S1, S2)

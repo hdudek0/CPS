@@ -126,7 +126,7 @@ class SampledSignal(Signal):
     
     def __truediv__(self, other):
         def safe_div(a, b):
-            return a / b if b != 0 else math.nan
+            return a / b if b > 1e-9 else math.nan
         return self._operation(other, safe_div, "/")
         
 
