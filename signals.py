@@ -128,7 +128,21 @@ class SampledSignal(Signal):
         def safe_div(a, b):
             return a / b if b > 1e-9 else math.nan
         return self._operation(other, safe_div, "/")
-        
+    
+
+class QuantizedSignal(SampledSignal):
+    def __init__(self, sampled, levels):
+        X, Y = sampled.samples()
+        self.levels = levels
+        ymin, ymax = min(Y), max(Y)
+        if ymin != ymax:
+            level_size = (ymax - ymin) / levels
+            quantized_Y = [ymin + max(0, min(levels - 1, round((y - ymin) / level_size))) * level_size for y in Y]
+        else:
+            quantized_Y = Y
+        super().__init__(X, quantized_Y, f"{str(sampled)} po kwantyzacji",
+                         sampled.fs, sampled.n1, sampled.l)
+    
 
 class ContinuousSignal(Signal,  ABC):
     @abstractmethod
@@ -382,3 +396,30 @@ class S11(DiscreteSignal):
 
     def __str__(self):
         return "Szum impulsowy"
+    
+#TODO: dodać warunki do liczenia tych miar
+
+def mse(original, reconstructed):
+    _, Y1 = original.samples()
+    _, Y2 = reconstructed.samples()
+    return sum((y1 - y2)**2 for y1, y2 in zip(Y1, Y2)) / len(Y1)
+
+
+def snr(original, reconstructed):
+    _, Y1 = original.samples()
+    _, Y2 = reconstructed.samples()
+    sum1 = sum(y1**2 for y1 in Y1)
+    sum2 = sum((y1 - y2)**2 for y1, y2 in zip(Y1, Y2))
+    return 10 * math.log10(sum1 / sum2)
+
+
+def psnr(original, reconstructed):
+    _, Y1 = original.samples()
+    m = mse(original, reconstructed)
+    return 10 * math.log10(max(Y1) / m)
+
+
+def md(original, reconstructed):
+    _, Y1 = original.samples()
+    _, Y2 = reconstructed.samples()
+    return max(abs(y1 - y2) for y1, y2 in zip(Y1, Y2))
