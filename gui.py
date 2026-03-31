@@ -290,7 +290,7 @@ class MainWindow(QMainWindow):
 
     def do_operation(self):
         try:
-            if len(self.signals) < 2:
+            if len(self.signals) < 1:
                 return
             a = self.signals[self.op_a.currentIndex()]
             b = self.signals[self.op_b.currentIndex()]

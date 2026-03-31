@@ -416,7 +416,7 @@ def snr(original, reconstructed):
 def psnr(original, reconstructed):
     _, Y1 = original.samples()
     m = mse(original, reconstructed)
-    return 10 * math.log10(max(Y1) / m)
+    return 10 * math.log10(max(Y1)**2 / m)
 
 
 def md(original, reconstructed):
