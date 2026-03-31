@@ -397,29 +397,36 @@ class S11(DiscreteSignal):
     def __str__(self):
         return "Szum impulsowy"
     
-#TODO: dodać warunki do liczenia tych miar
 
-def mse(original, reconstructed):
-    _, Y1 = original.samples()
-    _, Y2 = reconstructed.samples()
+def mse(orig, reconstr):
+    _, Y1 = orig.samples()
+    _, Y2 = reconstr.samples()
+    if orig.fs != reconstr.fs or orig.n1 != reconstr.n1 or orig.l != reconstr.l:
+        return None
     return sum((y1 - y2)**2 for y1, y2 in zip(Y1, Y2)) / len(Y1)
 
 
-def snr(original, reconstructed):
-    _, Y1 = original.samples()
-    _, Y2 = reconstructed.samples()
+def snr(orig, reconstr):
+    _, Y1 = orig.samples()
+    _, Y2 = reconstr.samples()
+    if orig.fs != reconstr.fs or orig.n1 != reconstr.n1 or orig.l != reconstr.l:
+        return None
     sum1 = sum(y1**2 for y1 in Y1)
     sum2 = sum((y1 - y2)**2 for y1, y2 in zip(Y1, Y2))
     return 10 * math.log10(sum1 / sum2)
 
 
-def psnr(original, reconstructed):
-    _, Y1 = original.samples()
-    m = mse(original, reconstructed)
+def psnr(orig, reconstr):
+    _, Y1 = orig.samples()
+    m = mse(orig, reconstr)
+    if not m:
+        return None
     return 10 * math.log10(max(Y1)**2 / m)
 
 
-def md(original, reconstructed):
-    _, Y1 = original.samples()
-    _, Y2 = reconstructed.samples()
+def md(orig, reconstr):
+    _, Y1 = orig.samples()
+    _, Y2 = reconstr.samples()
+    if orig.fs != reconstr.fs or orig.n1 != reconstr.n1 or orig.l != reconstr.l:
+        return None
     return max(abs(y1 - y2) for y1, y2 in zip(Y1, Y2))
