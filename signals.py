@@ -1,6 +1,7 @@
 import math
 import random
 import pickle
+import numpy as np
 from abc import ABC, abstractmethod
 
 
@@ -24,7 +25,7 @@ class Signal(ABC):
                              f"Wczytany({data.get('name', '?')})",
                              data["fs"], data["n1"], data["l"],
                              source=data.get("source"))
-    
+
     def mean(self):
         _, Y = self.samples()
         if not Y:
@@ -52,7 +53,48 @@ class Signal(ABC):
 
     def rms(self):
         return math.sqrt(self.power())
-    
+
+    def plot_signal(self, ax, draw_continuous=False):
+        X, Y = self.samples()
+        ax.axhline(0, color='darkgray', linewidth=1, linestyle="--")
+        if draw_continuous:
+            ax.plot(X, Y, color="lightblue", marker='.', markersize=2,
+                    markeredgecolor="darkgreen", markerfacecolor="darkgreen")
+        else:
+            ax.scatter(X, Y, color="darkgreen", s=9)
+        ax.set_title(str(self))
+        ax.set_xlabel("t[s]")
+        ax.set_ylabel("A")
+
+    def plot_histogram(self, ax, bins=20):
+        _, Y = self.samples()
+        Y = np.array(Y)
+        bin_size = (Y.max() - Y.min()) / bins
+        if bin_size == 0:
+            ax.bar([Y[0]], [len(Y)])
+        else:
+            edges = np.linspace(Y.min(), Y.max(), bins, endpoint=False)
+            centers = edges + bin_size / 2
+            classified = np.floor((Y - Y.min()) / bin_size).astype(int).clip(0, bins - 1)
+            counts = np.bincount(classified)
+            ax.bar(centers, counts, width=bin_size * 0.9)
+        ax.set_title("Histogram")
+        ax.set_xlabel("A")
+        ax.set_ylabel("liczba próbek")
+
+    @staticmethod
+    def plot_comparison(ax, original, transformed, orig_label="Sygnał wzorcowy",
+                        trans_label="Sygnał przetworzony"):
+        X1, Y1 = original.samples()
+        X2, Y2 = transformed.samples()
+        ax.axhline(0, color='darkgray', linewidth=1, linestyle="--")
+        ax.scatter(X1, Y1, color="blue", s=9, label=orig_label, alpha=0.7)
+        ax.scatter(X2, Y2, color="red", s=9, label=trans_label, alpha=0.7)
+        ax.legend()
+        ax.set_title("Porównanie")
+        ax.set_xlabel("t[s]")
+        ax.set_ylabel("A")
+
 
 class ResultOfOperation:
     def __init__(self, a_source, b_source, op_fn, symbol):
@@ -170,7 +212,7 @@ class SampledSignal(Signal):
         def safe_div(a, b):
             return a / b if b > 1e-9 else math.nan
         return self._operation(other, safe_div, "/")
-    
+
 
 class QuantizedSignal(SampledSignal):
     def __init__(self, sampled, levels):
@@ -181,22 +223,26 @@ class QuantizedSignal(SampledSignal):
             level_size = (ymax - ymin) / levels
             quantized_Y = [ymin + max(0, min(levels - 1, round((y - ymin) / level_size))) * level_size for y in Y]
         else:
-            quantized_Y = Y
-        super().__init__(X, quantized_Y, f"{str(sampled)} po kwantyzacji",
+            quantized_Y = list(Y)
+        super().__init__(X, quantized_Y, f"{str(sampled)} po kwantyzacji ({levels} poziomów)",
                          sampled.fs, sampled.n1, sampled.l, source=sampled.source)
+        self.original = sampled
 
 
 class ReconstructedSignal(SampledSignal):
     def __init__(self, source_sig, fs_new, method="foh", l_sinc=2, middle_n_sinc=0):
-        # source - SampledSignal
-        # new_fs - wyższa częstotliwość próbkowania
-        # method - foh (interpolacja pierwszego rzędu) lub sinc
-
         X_old, Y_old = source_sig.samples()
         fs_old = source_sig.fs
         if fs_new <= fs_old:
             raise ValueError("Rekonstrukcja musi mieć większą częstotliwość próbkowania niż sygnał oryginalny")
         l_old = source_sig.l
+        if method == "sinc":
+            if l_sinc > l_old:
+                raise ValueError(
+                    f"Liczba próbek sinc ({l_sinc}) przekracza długość sygnału ({l_old}).")
+            if middle_n_sinc < 0 or middle_n_sinc >= l_old:
+                raise ValueError(
+                    f"Nr środkowej próbki ({middle_n_sinc}) poza zakresem [0, {l_old - 1}].")
         l_new = int(l_old * fs_new / fs_old)
         X_new, Y_new = [], []
         t_start = X_old[0]
@@ -205,6 +251,8 @@ class ReconstructedSignal(SampledSignal):
             X_new.append(t)
             if method == "foh":
                 i_left = int((t - t_start) * fs_old)
+                if i_left >= l_old - 1:
+                    i_left = l_old - 2
                 i_right = i_left + 1
 
                 X_left = X_old[i_left]
@@ -218,14 +266,30 @@ class ReconstructedSignal(SampledSignal):
                 i_right = middle_n_sinc + l_sinc // 2
                 if l_sinc % 2 == 1:
                     i_right += 1
-                Y_old_part = Y_old[i_left : i_right]
-                X_old_part = X_old[i_left : i_right]
+                i_left = max(0, i_left)
+                i_right = min(l_old, i_right)
+                actual_len = i_right - i_left
+                if actual_len < l_sinc:
+                    if i_left == 0:
+                        i_right += (l_sinc - actual_len)
+                    elif i_right == l_old:
+                        i_left -= (l_sinc - actual_len)
+                    else: raise ValueError("Błąd przy wyznaczaniu przedziału")
+                Y_old_part = Y_old[i_left:i_right]
+                X_old_part = X_old[i_left:i_right]
                 Y_new.append(sum(
                     Y_old_part[k] * self._sinc((t - X_old_part[k]) * fs_old)
                     for k in range(l_sinc)
                 ))
 
-    def _sinc(x):
+        n1_new = round(source_sig.n1 * fs_new / fs_old)
+        super().__init__(X_new, Y_new,
+                         f"{str(source_sig)} rekonstrukcja ({method}, fs={fs_new})",
+                         fs_new, n1_new, l_new, source=source_sig.source)
+        self.original = source_sig
+        self.method = method
+
+    def _sinc(self, x):
         if abs(x) < 1e-10:
             return 1.0
         return math.sin(math.pi * x) / (math.pi * x)
@@ -241,7 +305,7 @@ class ContinuousSignal(Signal, ABC):
         self.t1 = t1
         self.d = d
         self.fs = fs
-    
+
     def samples(self):
         X, Y = [], []
         n = int(self.fs * self.d)
@@ -250,7 +314,7 @@ class ContinuousSignal(Signal, ABC):
             X.append(t)
             Y.append(self.value(t))
         return X, Y
-    
+
     def _t_in_domain(self, t):
         return t >= self.t1 and t <= self.d + self.t1
 
@@ -259,7 +323,7 @@ class DiscreteSignal(Signal, ABC):
     @abstractmethod
     def value(self, n):
         pass
-    
+
     def __init__(self, A, n1, l, fs):
         self.A = A
         self.n1 = n1
@@ -275,7 +339,7 @@ class DiscreteSignal(Signal, ABC):
             X.append(t)
             Y.append(self.value(n))
         return X, Y
-    
+
     def _n_in_domain(self, n):
         return n >= self.n1 and n <= self.n2
 
@@ -483,7 +547,7 @@ class S11(DiscreteSignal):
 
     def __str__(self):
         return "Szum impulsowy"
-    
+
 
 def mse(orig, reconstr):
     _, Y1 = orig.samples()
@@ -500,6 +564,8 @@ def snr(orig, reconstr):
         return None
     sum1 = sum(y1**2 for y1 in Y1)
     sum2 = sum((y1 - y2)**2 for y1, y2 in zip(Y1, Y2))
+    if sum2 == 0:
+        return float('inf')
     return 10 * math.log10(sum1 / sum2)
 
 
