@@ -187,14 +187,15 @@ class QuantizedSignal(SampledSignal):
 
 
 class ReconstructedSignal(SampledSignal):
-    def __init__(self, source_sig, fs_new, method="foh"):
+    def __init__(self, source_sig, fs_new, method="foh", l_sinc=2, middle_n_sinc=0):
         # source - SampledSignal
         # new_fs - wyższa częstotliwość próbkowania
         # method - foh (interpolacja pierwszego rzędu) lub sinc
 
-        # TODO: sprawdzenie fs_new > fs_old
         X_old, Y_old = source_sig.samples()
         fs_old = source_sig.fs
+        if fs_new <= fs_old:
+            raise ValueError("Rekonstrukcja musi mieć większą częstotliwość próbkowania niż sygnał oryginalny")
         l_old = source_sig.l
         l_new = int(l_old * fs_new / fs_old)
         X_new, Y_new = [], []
@@ -203,9 +204,31 @@ class ReconstructedSignal(SampledSignal):
             t = t_start + i / fs_new
             X_new.append(t)
             if method == "foh":
-                pass
+                i_left = int((t - t_start) * fs_old)
+                i_right = i_left + 1
+
+                X_left = X_old[i_left]
+                X_right = X_old[i_right]
+                Y_left = Y_old[i_left]
+                Y_right = Y_old[i_right]
+
+                Y_new.append((Y_right - Y_left) / (X_right - X_left) * (t - X_left) + Y_left)
             else:
-                pass
+                i_left = middle_n_sinc - l_sinc // 2
+                i_right = middle_n_sinc + l_sinc // 2
+                if l_sinc % 2 == 1:
+                    i_right += 1
+                Y_old_part = Y_old[i_left : i_right]
+                X_old_part = X_old[i_left : i_right]
+                Y_new.append(sum(
+                    Y_old_part[k] * self._sinc((t - X_old_part[k]) * fs_old)
+                    for k in range(l_sinc)
+                ))
+
+    def _sinc(x):
+        if abs(x) < 1e-10:
+            return 1.0
+        return math.sin(math.pi * x) / (math.pi * x)
 
 
 class ContinuousSignal(Signal, ABC):
