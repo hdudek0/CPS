@@ -46,7 +46,7 @@ def to_sampled(sig, is_continuous):
     else:
         n1 = int(sig.n1)
         l = int(sig.l)
-    return SampledSignal(X, Y, str(sig), fs, n1, l)
+    return SampledSignal(X, Y, str(sig), fs, n1, l, source=sig)
 
 
 class MainWindow(QMainWindow):

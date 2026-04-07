@@ -22,7 +22,8 @@ class Signal(ABC):
             raise FileNotFoundError("Nie udało się załadować pliku")
         return SampledSignal(data["X"], data["Y"],
                              f"Wczytany({data.get('name', '?')})",
-                             data["fs"], data["n1"], data["l"])
+                             data["fs"], data["n1"], data["l"],
+                             source=data.get("source"))
     
     def mean(self):
         _, Y = self.samples()
@@ -53,24 +54,55 @@ class Signal(ABC):
         return math.sqrt(self.power())
     
 
+class ResultOfOperation:
+    def __init__(self, a_source, b_source, op_fn, symbol):
+        self.a_source = a_source
+        self.b_source = b_source
+        self.op_fn = op_fn
+        self.symbol = symbol
+
+    def value(self, t):
+        return self.op_fn(self.a_source.value(t), self.b_source.value(t))
+
+    def __str__(self):
+        return f"({self.a_source}){self.symbol}({self.b_source})"
+
+
 class SampledSignal(Signal):
-    def __init__(self, X, Y, name, fs, n1, l):
+    def __init__(self, X, Y, name, fs, n1, l, source=None):
         self.X = list(X)
         self.Y = list(Y)
         self.name = name
         self.fs = fs
         self.n1 = n1
         self.l = l
+        self.source = source
 
-    def value(self, x):
+    def value(self, t):
+        if self.source is not None:
+            return self.source.value(t)
         return None
 
     def samples(self):
         return self.X, self.Y
 
+    def resample(self, new_fs):
+        if self.source is None:
+            raise ValueError(
+                "Brak odniesienia do sygnału źródłowego — nie można próbkować ponownie.")
+        t_start = self.n1 / self.fs
+        l_new = round(self.l * new_fs / self.fs)
+        n1_new = round(self.n1 * new_fs / self.fs)
+        X, Y = [], []
+        for i in range(l_new):
+            t = t_start + i / new_fs
+            X.append(t)
+            Y.append(self.source.value(t))
+        return SampledSignal(X, Y, self.name, new_fs, n1_new, l_new, source=self.source)
+
     def __str__(self):
         return self.name
-        
+
     def save_bin(self, path):
         X, Y = self.samples()
         data = {
@@ -79,14 +111,15 @@ class SampledSignal(Signal):
             "Y": Y,
             "fs": self.fs,
             "n1": self.n1,
-            "l": self.l
+            "l": self.l,
+            "source": self.source,
         }
         try:
             with open(path, "wb") as f:
                 pickle.dump(data, f)
         except Exception:
             raise FileNotFoundError("Nie udało się zapisać pliku")
-            
+
     def save_txt(self, path):
         X, Y = self.samples()
         try:
@@ -95,6 +128,10 @@ class SampledSignal(Signal):
                 f.write(f"czestotliwosc probkowania (fs): {str(self.fs)}\n")
                 f.write(f"numer pierwszej probki (n1): {str(self.n1)}\n")
                 f.write(f"liczba probek (l): {str(self.l)}\n")
+                if self.source is not None:
+                    f.write(f"wzor: {str(self.source)}\n")
+                else:
+                    f.write("wzor: (brak - nie mozna probkowac ponownie)\n")
                 for x, y in zip(X, Y):
                     f.write(f"{x}\t{y}\n")
         except Exception:
@@ -113,7 +150,12 @@ class SampledSignal(Signal):
             else:
                 replacement = 0
             Y = [replacement if math.isnan(y) else y for y in Y]
-        return SampledSignal(X1, Y, f"({self}){symbol}({other})", self.fs, self.n1, self.l)
+        if self.source is not None and other.source is not None:
+            op_source = ResultOfOperation(self.source, other.source, op, symbol)
+        else:
+            op_source = None
+        return SampledSignal(X1, Y, f"({self}){symbol}({other})", self.fs, self.n1, self.l,
+                             source=op_source)
 
     def __add__(self, other):
         return self._operation(other, lambda a, b: a + b, "+")
@@ -123,7 +165,7 @@ class SampledSignal(Signal):
 
     def __mul__(self, other):
         return self._operation(other, lambda a, b: a * b, "*")
-    
+
     def __truediv__(self, other):
         def safe_div(a, b):
             return a / b if b > 1e-9 else math.nan
@@ -141,10 +183,32 @@ class QuantizedSignal(SampledSignal):
         else:
             quantized_Y = Y
         super().__init__(X, quantized_Y, f"{str(sampled)} po kwantyzacji",
-                         sampled.fs, sampled.n1, sampled.l)
-    
+                         sampled.fs, sampled.n1, sampled.l, source=sampled.source)
 
-class ContinuousSignal(Signal,  ABC):
+
+class ReconstructedSignal(SampledSignal):
+    def __init__(self, source_sig, fs_new, method="foh"):
+        # source - SampledSignal
+        # new_fs - wyższa częstotliwość próbkowania
+        # method - foh (interpolacja pierwszego rzędu) lub sinc
+
+        # TODO: sprawdzenie fs_new > fs_old
+        X_old, Y_old = source_sig.samples()
+        fs_old = source_sig.fs
+        l_old = source_sig.l
+        l_new = int(l_old * fs_new / fs_old)
+        X_new, Y_new = [], []
+        t_start = X_old[0]
+        for i in range(l_new):
+            t = t_start + i / fs_new
+            X_new.append(t)
+            if method == "foh":
+                pass
+            else:
+                pass
+
+
+class ContinuousSignal(Signal, ABC):
     @abstractmethod
     def value(self, t):
         pass
