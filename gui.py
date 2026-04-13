@@ -1,8 +1,7 @@
 import sys
-import numpy as np
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox, QTextEdit, QFileDialog, QGroupBox,
-    QMessageBox, QDialog, QDoubleSpinBox, QTabWidget)
+    QMessageBox, QDialog, QTabWidget)
 from PySide6.QtCore import Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure

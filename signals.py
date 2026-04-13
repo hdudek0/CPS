@@ -88,7 +88,7 @@ class Signal(ABC):
         X1, Y1 = original.samples()
         X2, Y2 = transformed.samples()
         ax.axhline(0, color='darkgray', linewidth=1, linestyle="--")
-        ax.scatter(X1, Y1, color="blue", s=9, label=orig_label, alpha=0.7)
+        ax.scatter(X1, Y1, color="green", s=9, label=orig_label, alpha=0.7)
         ax.scatter(X2, Y2, color="red", s=9, label=trans_label, alpha=0.7)
         ax.legend()
         ax.set_title("Porównanie")
@@ -220,11 +220,11 @@ class QuantizedSignal(SampledSignal):
         self.levels = levels
         ymin, ymax = min(Y), max(Y)
         if ymin != ymax:
-            level_size = (ymax - ymin) / levels
+            level_size = (ymax - ymin) / (levels - 1)
             quantized_Y = [ymin + max(0, min(levels - 1, round((y - ymin) / level_size))) * level_size for y in Y]
         else:
             quantized_Y = list(Y)
-        super().__init__(X, quantized_Y, f"{str(sampled)} po kwantyzacji ({levels} poziomów)",
+        super().__init__(X, quantized_Y, f"{str(sampled)} po kwantyzacji (poziomy: {levels})",
                          sampled.fs, sampled.n1, sampled.l, source=sampled.source)
         self.original = sampled
 
