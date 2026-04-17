@@ -72,6 +72,7 @@ class MainWindow(QMainWindow):
         self.current_idx = -1
         self.show_comparison = False
         self.stats_texts = []
+        self.nav_labels = []
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -108,18 +109,7 @@ class MainWindow(QMainWindow):
         btn_gen.clicked.connect(self.generate)
         gen_lay.addWidget(btn_gen)
 
-        nav = QHBoxLayout()
-        self.btn_prev = QPushButton("< Poprzedni")
-        self.btn_prev.clicked.connect(lambda: self.navigate(-1))
-        self.btn_next = QPushButton("Następny >")
-        self.btn_next.clicked.connect(lambda: self.navigate(1))
-        self.nav_label = QLabel("Brak sygnałów")
-        self.nav_label.setAlignment(Qt.AlignCenter)
-        nav.addWidget(self.btn_prev)
-        nav.addWidget(self.nav_label)
-        nav.addWidget(self.btn_next)
-        gen_lay.addLayout(nav)
-
+        self._make_signal_nav_widget(gen_lay)
         self._make_file_stats_widget(gen_lay)
         tabs.addTab(tab_gen, "Generator")
 
@@ -145,6 +135,7 @@ class MainWindow(QMainWindow):
         btn_quant.clicked.connect(self.do_quantize)
         quant_lay.addWidget(btn_quant)
 
+        self._make_signal_nav_widget(quant_lay)
         self._make_file_stats_widget(quant_lay)
         tabs.addTab(tab_quant, "Kwantyzacja")
 
@@ -171,22 +162,15 @@ class MainWindow(QMainWindow):
         recon_method_row.addWidget(self.recon_method)
         recon_lay.addLayout(recon_method_row)
 
-        self.sinc_group = QGroupBox("Parametry sinc")
+        self.sinc_group = QGroupBox()
         sinc_lay = QVBoxLayout(self.sinc_group)
         sinc_row1 = QHBoxLayout()
-        sinc_row1.addWidget(QLabel("Liczba próbek:"))
+        sinc_row1.addWidget(QLabel("Liczba sąsiadów:"))
         self.sinc_l = QSpinBox()
         self.sinc_l.setRange(2, 10000)
         self.sinc_l.setValue(10)
         sinc_row1.addWidget(self.sinc_l)
         sinc_lay.addLayout(sinc_row1)
-        sinc_row2 = QHBoxLayout()
-        sinc_row2.addWidget(QLabel("Nr środkowej próbki:"))
-        self.sinc_mid = QSpinBox()
-        self.sinc_mid.setRange(0, MAX_SAMPLES)
-        self.sinc_mid.setValue(10)
-        sinc_row2.addWidget(self.sinc_mid)
-        sinc_lay.addLayout(sinc_row2)
         recon_lay.addWidget(self.sinc_group)
 
         self.recon_method.currentTextChanged.connect(self._update_sinc_group)
@@ -196,6 +180,7 @@ class MainWindow(QMainWindow):
         btn_recon.clicked.connect(self.do_reconstruct)
         recon_lay.addWidget(btn_recon)
 
+        self._make_signal_nav_widget(recon_lay)
         self._make_file_stats_widget(recon_lay)
         tabs.addTab(tab_recon, "Rekonstrukcja")
 
@@ -217,6 +202,7 @@ class MainWindow(QMainWindow):
         btn_op.clicked.connect(self.do_operation)
         op_lay.addWidget(btn_op)
 
+        self._make_signal_nav_widget(op_lay)
         self._make_file_stats_widget(op_lay)
         tabs.addTab(tab_ops, "Operacje")
 
@@ -234,6 +220,20 @@ class MainWindow(QMainWindow):
 
         self.on_type_changed(self.type_combo.currentText())
         self.resize(1100, 750)
+
+    def _make_signal_nav_widget(self, lay):
+        nav = QHBoxLayout()
+        btn_prev = QPushButton("< Poprzedni")
+        btn_prev.clicked.connect(lambda: self.navigate(-1))
+        btn_next = QPushButton("Następny >")
+        btn_next.clicked.connect(lambda: self.navigate(1))
+        label = QLabel("Brak sygnałów")
+        label.setAlignment(Qt.AlignCenter)
+        nav.addWidget(btn_prev)
+        nav.addWidget(label)
+        nav.addWidget(btn_next)
+        lay.addLayout(nav)
+        self.nav_labels.append(label)
 
     def _make_file_stats_widget(self, lay):
         io_group = QGroupBox("Plik")
@@ -382,7 +382,8 @@ class MainWindow(QMainWindow):
         sig = self.signals[self.current_idx]
         draw_continuous = getattr(sig, 'draw_continuous', False)
         has_comparison = hasattr(sig, 'original') and sig.original is not None
-        self.nav_label.setText(f"{self.current_idx + 1}/{len(self.signals)}")
+        for lbl in self.nav_labels:
+            lbl.setText(f"{self.current_idx + 1}/{len(self.signals)}")
 
         if has_comparison:
             self.btn_toggle_view.setEnabled(True)
@@ -499,31 +500,20 @@ class MainWindow(QMainWindow):
 
         method = self.recon_method.currentText()
         l_sinc = self.sinc_l.value()
-        mid_sinc = self.sinc_mid.value()
 
         if method == "sinc":
             l_old = source.l
-            errors = []
             if l_sinc > l_old:
-                errors.append(f"  - Liczba próbek sinc ({l_sinc}) przekracza długość sygnału ({l_old})")
                 self.sinc_l.setStyleSheet("border: 1px solid red;")
-            else:
-                self.sinc_l.setStyleSheet("")
-            if mid_sinc < 0 or mid_sinc >= l_old:
-                errors.append(f"  - Nr środkowej próbki ({mid_sinc}) poza zakresem [0, {l_old - 1}]")
-                self.sinc_mid.setStyleSheet("border: 1px solid red;")
-            else:
-                self.sinc_mid.setStyleSheet("")
-            if errors:
-                QMessageBox.warning(self, "Błąd", "Błędne parametry:\n" + "\n".join(errors))
+                QMessageBox.warning(self, "Błąd",
+                    f"Liczba sąsiadów ({l_sinc}) przekracza długość sygnału ({l_old}).")
                 return
+            self.sinc_l.setStyleSheet("")
         else:
             self.sinc_l.setStyleSheet("")
-            self.sinc_mid.setStyleSheet("")
 
         try:
-            r = ReconstructedSignal(source, fs_new, method=method,
-                                     l_sinc=l_sinc, middle_n_sinc=mid_sinc)
+            r = ReconstructedSignal(source, fs_new, method=method, l_sinc=l_sinc)
         except ValueError as e:
             QMessageBox.warning(self, "Błąd", str(e))
             return
