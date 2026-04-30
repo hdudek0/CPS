@@ -216,6 +216,7 @@ class SampledSignal(Signal):
 
 class QuantizedSignal(SampledSignal):
     def __init__(self, sampled, levels):
+        self.original = sampled
         X, Y = sampled.samples()
         self.levels = levels
         ymin, ymax = min(Y), max(Y)
@@ -226,11 +227,12 @@ class QuantizedSignal(SampledSignal):
             quantized_Y = list(Y)
         super().__init__(X, quantized_Y, f"{str(sampled)} po kwantyzacji (poziomy: {levels})",
                          sampled.fs, sampled.n1, sampled.l, source=sampled.source)
-        self.original = sampled
 
 
 class ReconstructedSignal(SampledSignal):
     def __init__(self, source_sig, fs_new, method="foh", sinc_half=10):
+        self.original = source_sig
+        self.method = method
         X_old, Y_old = source_sig.samples()
         fs_old = source_sig.fs
         if fs_new <= fs_old:
@@ -270,8 +272,6 @@ class ReconstructedSignal(SampledSignal):
         super().__init__(X_new, Y_new,
                          f"{str(source_sig)} rekonstrukcja ({method}, fs={fs_new})",
                          fs_new, n1_new, l_new, source=source_sig.source)
-        self.original = source_sig
-        self.method = method
 
     def _sinc(self, x):
         if abs(x) < 1e-10:

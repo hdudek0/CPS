@@ -407,9 +407,11 @@ class MainWindow(QMainWindow):
                         original_for_plot = sig.original.resample(sig.fs)
                     except ValueError:
                         pass
-
-            Signal.plot_comparison(ax, original_for_plot, sig,
-                                   orig_label="Oryginał", trans_label="Przetworzony")
+                Signal.plot_comparison(ax, original_for_plot, sig,
+                                   orig_label="Oryginał", trans_label="Rekonstrukcja")
+            else:
+                Signal.plot_comparison(ax, original_for_plot, sig,
+                                   orig_label="Oryginał", trans_label="Po kwantyzacji")
         else:
             ax1 = self.fig.add_subplot(211)
             sig.plot_signal(ax1, draw_continuous=draw_continuous)
