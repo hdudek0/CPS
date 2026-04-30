@@ -165,11 +165,11 @@ class MainWindow(QMainWindow):
         self.sinc_group = QGroupBox()
         sinc_lay = QVBoxLayout(self.sinc_group)
         sinc_row1 = QHBoxLayout()
-        sinc_row1.addWidget(QLabel("Liczba sąsiadów:"))
-        self.sinc_l = QSpinBox()
-        self.sinc_l.setRange(2, 10000)
-        self.sinc_l.setValue(10)
-        sinc_row1.addWidget(self.sinc_l)
+        sinc_row1.addWidget(QLabel("Liczba sąsiadów po jednej stronie:"))
+        self.sinc_half = QSpinBox()
+        self.sinc_half.setRange(1, 10000)
+        self.sinc_half.setValue(10)
+        sinc_row1.addWidget(self.sinc_half)
         sinc_lay.addLayout(sinc_row1)
         recon_lay.addWidget(self.sinc_group)
 
@@ -499,21 +499,21 @@ class MainWindow(QMainWindow):
             return
 
         method = self.recon_method.currentText()
-        l_sinc = self.sinc_l.value()
+        sinc_half = self.sinc_half.value()
 
         if method == "sinc":
             l_old = source.l
-            if l_sinc > l_old:
-                self.sinc_l.setStyleSheet("border: 1px solid red;")
+            if sinc_half*2 > l_old:
+                self.sinc_half.setStyleSheet("border: 1px solid red;")
                 QMessageBox.warning(self, "Błąd",
-                    f"Liczba sąsiadów ({l_sinc}) przekracza długość sygnału ({l_old}).")
+                    f"Liczba sąsiadów ({sinc_half*2}) przekracza długość sygnału ({l_old}).")
                 return
-            self.sinc_l.setStyleSheet("")
+            self.sinc_half.setStyleSheet("")
         else:
-            self.sinc_l.setStyleSheet("")
+            self.sinc_half.setStyleSheet("")
 
         try:
-            r = ReconstructedSignal(source, fs_new, method=method, l_sinc=l_sinc)
+            r = ReconstructedSignal(source, fs_new, method=method, sinc_half=sinc_half)
         except ValueError as e:
             QMessageBox.warning(self, "Błąd", str(e))
             return

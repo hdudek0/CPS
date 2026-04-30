@@ -230,15 +230,15 @@ class QuantizedSignal(SampledSignal):
 
 
 class ReconstructedSignal(SampledSignal):
-    def __init__(self, source_sig, fs_new, method="foh", l_sinc=10):
+    def __init__(self, source_sig, fs_new, method="foh", sinc_half=10):
         X_old, Y_old = source_sig.samples()
         fs_old = source_sig.fs
         if fs_new <= fs_old:
             raise ValueError("Rekonstrukcja musi mieć większą częstotliwość próbkowania niż sygnał oryginalny")
         l_old = source_sig.l
-        if method == "sinc" and l_sinc > l_old:
+        if method == "sinc" and sinc_half*2 > l_old:
             raise ValueError(
-                f"Liczba próbek sinc ({l_sinc}) przekracza długość sygnału ({l_old}).")
+                f"Liczba próbek sinc ({sinc_half*2}) przekracza długość sygnału ({l_old}).")
         l_new = int(l_old * fs_new / fs_old)
         X_new, Y_new = [], []
         t_start = X_old[0]
@@ -258,11 +258,9 @@ class ReconstructedSignal(SampledSignal):
 
                 Y_new.append((Y_right - Y_left) / (X_right - X_left) * (t - X_left) + Y_left)
             else:
-                i_center = int((t - t_start) * fs_old)
-                half = l_sinc // 2
-                i_left = max(0, i_center - half)
-                i_right = min(l_old, i_left + l_sinc)
-                i_left = i_right - l_sinc
+                i_center = round((t - t_start) * fs_old)
+                i_left = max(0, i_center - sinc_half)
+                i_right = min(l_old, i_center + sinc_half + 1)
                 Y_new.append(sum(
                     Y_old[k] * self._sinc((t - X_old[k]) * fs_old)
                     for k in range(i_left, i_right)
