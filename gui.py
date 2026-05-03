@@ -1,4 +1,5 @@
 import sys
+import math
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox, QTextEdit, QFileDialog, QGroupBox,
     QMessageBox, QDialog, QTabWidget)
@@ -117,19 +118,19 @@ class MainWindow(QMainWindow):
         tab_quant = QWidget()
         quant_lay = QVBoxLayout(tab_quant)
 
-        quant_row = QHBoxLayout()
-        quant_row.addWidget(QLabel("Liczba poziomów:"))
-        self.quant_levels = QSpinBox()
-        self.quant_levels.setRange(2, 2**16-1)
-        self.quant_levels.setValue(16)
-        quant_row.addWidget(self.quant_levels)
-        quant_lay.addLayout(quant_row)
-
         quant_src_row = QHBoxLayout()
         quant_src_row.addWidget(QLabel("Sygnał źródłowy:"))
         self.quant_source = QComboBox()
         quant_src_row.addWidget(self.quant_source)
         quant_lay.addLayout(quant_src_row)
+
+        quant_row = QHBoxLayout()
+        quant_row.addWidget(QLabel("Liczba poziomów:"))
+        self.quant_levels = QSpinBox()
+        self.quant_levels.setRange(2, 2**16)
+        self.quant_levels.setValue(16)
+        quant_row.addWidget(self.quant_levels)
+        quant_lay.addLayout(quant_row)
 
         btn_quant = QPushButton("Kwantyzuj")
         btn_quant.clicked.connect(self.do_quantize)
@@ -351,6 +352,7 @@ class MainWindow(QMainWindow):
             return
         sampled = to_sampled(sig, is_continuous)
         sampled.draw_continuous = is_continuous and cls not in (S1, S2)
+        sampled.no_reconstruction = not is_continuous or cls in (S1, S2)
         self.signals.append(sampled)
         self.current_idx = len(self.signals) - 1
         self.show_comparison = False
@@ -447,6 +449,12 @@ class MainWindow(QMainWindow):
             stats += f"\nSNR: {s:.6f} dB" if s is not None and s != float('inf') else f"\nSNR: {'∞' if s == float('inf') else 'N/A'}"
             stats += f"\nPSNR: {p:.6f} dB" if p is not None else "\nPSNR: N/A"
             stats += f"\nMD: {d:.6f}" if d is not None else "\nMD: N/A"
+            if isinstance(sig, QuantizedSignal):
+                b = math.log2(sig.levels)
+                st = 6.02 * b + 1.76
+                enob = (s - 1.76) / 6.02
+                stats += f"\nSNR (teoretyczne): {st:.6f} dB" if st is not None else "\nSNR (teoretyczne): N/A"
+                stats += f"\nENOB: {enob:.6f}" if s is not None and s != float('inf') else "\nENOB: N/A"
 
         for st in self.stats_texts:
             st.setText(stats)
@@ -485,6 +493,9 @@ class MainWindow(QMainWindow):
         if idx < 0 or idx >= len(self.signals):
             return
         source = self.signals[idx]
+        if getattr(source, 'no_reconstruction', False):
+            QMessageBox.warning(self, "Błąd", "Nie można rekonstruować sygnałów dyskretnych i szumów.")
+            return
         try:
             fs_new = float(self.recon_fs.text().strip())
             if fs_new <= 0:
@@ -505,10 +516,10 @@ class MainWindow(QMainWindow):
 
         if method == "sinc":
             l_old = source.l
-            if sinc_half*2 > l_old:
+            if sinc_half * 2 + 1 > l_old:
                 self.sinc_half.setStyleSheet("border: 1px solid red;")
                 QMessageBox.warning(self, "Błąd",
-                    f"Liczba sąsiadów ({sinc_half*2}) przekracza długość sygnału ({l_old}).")
+                    f"Liczba sąsiadów ({sinc_half * 2 + 1}) przekracza długość sygnału ({l_old}).")
                 return
             self.sinc_half.setStyleSheet("")
         else:

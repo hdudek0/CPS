@@ -24,7 +24,7 @@ class Signal(ABC):
         return SampledSignal(data["X"], data["Y"],
                              f"Wczytany({data.get('name', '?')})",
                              data["fs"], data["n1"], data["l"],
-                             source=data.get("source"))
+                             data.get("source"), data.get("no_reconstruction"))
 
     def mean(self):
         _, Y = self.samples()
@@ -111,7 +111,7 @@ class ResultOfOperation:
 
 
 class SampledSignal(Signal):
-    def __init__(self, X, Y, name, fs, n1, l, source=None):
+    def __init__(self, X, Y, name, fs, n1, l, source=None, no_reconstruction=False):
         self.X = list(X)
         self.Y = list(Y)
         self.name = name
@@ -119,6 +119,7 @@ class SampledSignal(Signal):
         self.n1 = n1
         self.l = l
         self.source = source
+        self.no_reconstruction = no_reconstruction
 
     def value(self, t):
         if self.source is not None:
@@ -131,7 +132,7 @@ class SampledSignal(Signal):
     def resample(self, new_fs):
         if self.source is None:
             raise ValueError(
-                "Brak odniesienia do sygnału źródłowego — nie można próbkować ponownie.")
+                "Brak odniesienia do sygnału źródłowego - nie można próbkować ponownie.")
         t_start = self.n1 / self.fs
         l_new = round(self.l * new_fs / self.fs)
         n1_new = round(self.n1 * new_fs / self.fs)
@@ -155,6 +156,7 @@ class SampledSignal(Signal):
             "n1": self.n1,
             "l": self.l,
             "source": self.source,
+            "no_reconstruction": getattr(self, 'no_reconstruction', False)
         }
         try:
             with open(path, "wb") as f:
@@ -238,9 +240,9 @@ class ReconstructedSignal(SampledSignal):
         if fs_new <= fs_old:
             raise ValueError("Rekonstrukcja musi mieć większą częstotliwość próbkowania niż sygnał oryginalny")
         l_old = source_sig.l
-        if method == "sinc" and sinc_half*2 > l_old:
+        if method == "sinc" and sinc_half * 2 + 1 > l_old:
             raise ValueError(
-                f"Liczba próbek sinc ({sinc_half*2}) przekracza długość sygnału ({l_old}).")
+                f"Liczba próbek sinc ({sinc_half * 2 + 1}) przekracza długość sygnału ({l_old}).")
         l_new = int(l_old * fs_new / fs_old)
         X_new, Y_new = [], []
         t_start = X_old[0]
