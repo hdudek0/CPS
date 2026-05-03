@@ -519,7 +519,7 @@ class MainWindow(QMainWindow):
             if sinc_half * 2 + 1 > l_old:
                 self.sinc_half.setStyleSheet("border: 1px solid red;")
                 QMessageBox.warning(self, "Błąd",
-                    f"Liczba sąsiadów ({sinc_half * 2 + 1}) przekracza długość sygnału ({l_old}).")
+                    f"Liczba próbek ({sinc_half * 2 + 1}) przekracza długość sygnału ({l_old}).")
                 return
             self.sinc_half.setStyleSheet("")
         else:
