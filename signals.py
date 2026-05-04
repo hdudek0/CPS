@@ -262,9 +262,9 @@ class ReconstructedSignal(SampledSignal):
 
                 Y_new.append((Y_right - Y_left) / (X_right - X_left) * (t - X_left) + Y_left)
             else:
-                i_center = round((t - t_start) * fs_old)
-                i_left = max(0, i_center - sinc_half)
-                i_right = min(l_old, i_center + sinc_half + 1)
+                i_floor = int((t - t_start) * fs_old)
+                i_left = max(0, i_floor - sinc_half + 1)
+                i_right = min(l_old, i_floor + sinc_half + 1)
                 Y_new.append(sum(
                     Y_old[k] * self._sinc((t - X_old[k]) * fs_old)
                     for k in range(i_left, i_right)
